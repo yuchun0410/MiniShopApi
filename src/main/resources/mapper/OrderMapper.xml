@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.OrderMapper">
+
+    <resultMap id="OrderResultMap" type="com.example.demo.model.Order">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="orderDate" column="order_date"/>
+        <result property="totalAmount" column="total_amount"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.example.demo.model.Order" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (member_id, order_date, total_amount)
+        VALUES (#{memberId}, #{orderDate}, #{totalAmount})
+    </insert>
+
+    <select id="findById" parameterType="long" resultMap="OrderResultMap">
+        SELECT * FROM orders WHERE id = #{id}
+    </select>
+
+    <select id="findByMemberId" parameterType="long" resultMap="OrderResultMap">
+        SELECT * FROM orders WHERE member_id = #{memberId}
+    </select>
+
+</mapper>

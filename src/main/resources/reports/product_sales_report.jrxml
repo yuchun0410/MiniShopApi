@@ -1,0 +1,66 @@
+<!-- Created with Jaspersoft Studio version 7.0.8.final using JasperReports Library version 7.0.8-6f896111  -->
+<jasperReport name="product_sales_report" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="8a976e52-ca34-453a-b983-c2c7f1c4c2b2">
+	<query language="sql"><![CDATA[]]></query>
+	<field name="productId" class="java.lang.Long"/>
+	<field name="productName" class="java.lang.String"/>
+	<field name="totalQuantity" class="java.lang.Long"/>
+	<field name="totalRevenue" class="java.math.BigDecimal"/>
+	<background splitType="Stretch"/>
+	<title height="35" splitType="Stretch">
+		<element kind="staticText" uuid="205ea01e-678c-4213-aef0-91b7a0b7a00d" x="0" y="0" width="555" height="35" fontName="PingFang TC" pdfFontName="/Applications/eclipse test/MiniShopApi/src/main/resources/fonts/SimHei.ttf" pdfEncoding="Identity-H" pdfEmbedded="true" fontSize="18.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[商品銷售報表]]></text>
+		</element>
+	</title>
+	<pageHeader height="10" splitType="Stretch"/>
+	<columnHeader height="35" splitType="Stretch">
+		<element kind="staticText" uuid="6a0f2940-0fd7-4f16-b1b4-924807dcba28" x="0" y="0" width="150" height="35" fontName="PingFang TC" pdfFontName="/Applications/eclipse test/MiniShopApi/src/main/resources/fonts/SimHei.ttf" pdfEncoding="Identity-H" pdfEmbedded="true" bold="true" hTextAlign="Center" vTextAlign="Middle" forecolor="#FFFFFF" backcolor="#4472C4" mode="Opaque">
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a6a10bca-ba07-49a3-a3ac-bd74e346051c"/>
+			<box>
+				<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+			</box>
+			<text><![CDATA[商品]]></text>
+		</element>
+		<element kind="staticText" uuid="6d310d58-33b5-47d7-a629-c9b89909a076" x="150" y="0" width="150" height="35" fontName="PingFang TC" pdfFontName="/Applications/eclipse test/MiniShopApi/src/main/resources/fonts/SimHei.ttf" pdfEncoding="Identity-H" pdfEmbedded="true" bold="true" hTextAlign="Center" vTextAlign="Middle" forecolor="#FFFFFF" backcolor="#4472C4" mode="Opaque">
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="4d925512-20c1-4d03-b05a-94c5e20c9f5a"/>
+			<box>
+				<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+			</box>
+			<text><![CDATA[累計銷售數量]]></text>
+		</element>
+		<element kind="staticText" uuid="d6964d35-71eb-47b2-b6c1-27ca75f17076" x="300" y="0" width="150" height="35" fontName="PingFang TC" pdfFontName="/Applications/eclipse test/MiniShopApi/src/main/resources/fonts/SimHei.ttf" pdfEncoding="Identity-H" pdfEmbedded="true" bold="true" hTextAlign="Center" vTextAlign="Middle" forecolor="#FFFFFF" backcolor="#4472C4" mode="Opaque">
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="041a3202-6d93-4293-9be0-74bf9eabed6b"/>
+			<box>
+				<pen lineWidth="0.5" lineColor="#FFFFFF"/>
+			</box>
+			<text><![CDATA[總營收金額]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="35" splitType="Stretch">
+			<element kind="textField" uuid="4b3b2ace-903d-4003-9876-aed7d6ff5581" x="0" y="0" width="150" height="35" fontName="PingFang TC" pdfFontName="/Applications/eclipse test/MiniShopApi/src/main/resources/fonts/SimHei.ttf" pdfEncoding="Identity-H" pdfEmbedded="true" hTextAlign="Left" vTextAlign="Middle">
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a6a10bca-ba07-49a3-a3ac-bd74e346051c"/>
+				<box leftPadding="5">
+					<pen lineWidth="0.5" lineColor="#D9D9D9"/>
+				</box>
+				<expression><![CDATA[$F{productName}]]></expression>
+			</element>
+			<element kind="textField" uuid="a2091ad6-5d8d-4449-9381-ed816c86be25" x="150" y="0" width="150" height="35" hTextAlign="Right" vTextAlign="Middle">
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="4d925512-20c1-4d03-b05a-94c5e20c9f5a"/>
+				<box rightPadding="5">
+					<pen lineWidth="0.5" lineColor="#D9D9D9"/>
+				</box>
+				<expression><![CDATA[$F{totalQuantity}]]></expression>
+			</element>
+			<element kind="textField" uuid="9b48523f-7398-46f2-a2fd-5cd41bd69bed" x="300" y="0" width="150" height="35" pattern="#,##0.00" hTextAlign="Right" vTextAlign="Middle">
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="041a3202-6d93-4293-9be0-74bf9eabed6b"/>
+				<box rightPadding="5">
+					<pen lineWidth="0.5" lineColor="#D9D9D9"/>
+				</box>
+				<expression><![CDATA[$F{totalRevenue}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="10" splitType="Stretch"/>
+	<pageFooter height="20" splitType="Stretch"/>
+	<summary height="10" splitType="Stretch"/>
+</jasperReport>

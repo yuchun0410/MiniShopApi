@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.OrderItemMapper">
+
+    <resultMap id="OrderItemResultMap" type="com.example.demo.model.OrderItem">
+        <id property="id" column="id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unitPrice" column="unit_price"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.example.demo.model.OrderItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO order_item (order_id, product_id, quantity, unit_price)
+        VALUES (#{orderId}, #{productId}, #{quantity}, #{unitPrice})
+    </insert>
+
+    <select id="findByOrderId" parameterType="long" resultMap="OrderItemResultMap">
+        SELECT * FROM order_item WHERE order_id = #{orderId}
+    </select>
+
+    <!-- ProductSalesReport 沒有 setter，只有建構子，所以這裡用 constructor 對應，不能用一般的 resultType -->
+    <resultMap id="ProductSalesReportMap" type="com.example.demo.model.ProductSalesReport">
+        <constructor>
+            <arg column="productId" javaType="java.lang.Long"/>
+            <arg column="productName" javaType="java.lang.String"/>
+            <arg column="totalQuantity" javaType="java.lang.Long"/>
+            <arg column="totalRevenue" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findProductSalesReport" resultMap="ProductSalesReportMap">
+        SELECT
+            oi.product_id AS productId,
+            p.name AS productName,
+            SUM(oi.quantity) AS totalQuantity,
+            SUM(oi.quantity * oi.unit_price) AS totalRevenue
+        FROM order_item oi
+        JOIN product p ON p.id = oi.product_id
+        GROUP BY oi.product_id, p.name
+        ORDER BY SUM(oi.quantity) DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.CartItemMapper">
+
+    <resultMap id="CartItemResultMap" type="com.example.demo.model.CartItem">
+        <id property="id" column="id"/>
+        <result property="quantity" column="quantity"/>
+        <association property="product" javaType="com.example.demo.model.Product">
+        <id property="id" column="p_id"/>
+		<result property="name" column="p_name"/>
+        <result property="price" column="p_price"/>
+        <result property="stock" column="p_stock"/>
+       
+        </association>
+    </resultMap>
+
+    <select id="findById" parameterType="long" resultMap="CartItemResultMap">
+     SELECT ci.id,ci.quantity,p.id AS p_id,p.name AS p_name,p.price AS p_price,p.stock AS p_stock
+     FROM cart_item ci JOIN product p ON ci.product_id=p.id 
+     WHERE ci.id = #{id}
+    </select>
+    
+    <select id="findByMemberId" parameterType="long" resultMap="CartItemResultMap">
+     SELECT ci.id,ci.quantity,p.id AS p_id,p.name AS p_name,p.price AS p_price,p.stock AS p_stock
+     FROM cart_item ci JOIN product p ON ci.product_id=p.id
+     WHERE ci.member_id=#{memberId}
+    </select>
+	
+	<select id="findByMemberAndProduct"  resultMap="CartItemResultMap">
+     SELECT ci.id,ci.quantity,p.id AS p_id,p.name AS p_name,p.price AS p_price,p.stock AS p_stock
+     FROM cart_item ci JOIN product p ON ci.product_id=p.id
+     WHERE ci.member_id=#{memberId} AND ci.product_id=#{productId}
+    </select>
+	<insert id="insert" parameterType="com.example.demo.model.CartItem" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO cart_item (member_id, product_id, quantity)
+    VALUES (#{member.id}, #{product.id}, #{quantity})
+	</insert>
+	
+	<update id="update" parameterType="com.example.demo.model.CartItem">
+	UPDATE cart_item SET quantity=#{quantity} WHERE id=#{id}
+	
+	</update>
+	
+	<delete id="deleteById" parameterType="long">
+	DELETE FROM cart_item WHERE id=#{id}
+	
+	</delete>
+	
+	<delete id="deleteByMemberId" parameterType="long">
+	DELETE FROM cart_item WHERE member_id=#{memberId}
+	
+	</delete>
+	
+</mapper>
