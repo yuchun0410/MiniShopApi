@@ -7,7 +7,7 @@ import com.example.demo.model.Role;
 import com.example.demo.service.MemberService;
 import com.example.demo.service.ReportService;
 import com.example.demo.service.impl.JasperReportService;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,14 +30,14 @@ public class ReportController {
     }
 
     @GetMapping("/products")
-    public List<ProductSalesReport> getProductSalesReport(HttpSession session) {
-        requireAdmin(session);
+    public List<ProductSalesReport> getProductSalesReport(HttpServletRequest request) {
+        requireAdmin(request);
         return reportService.getProductSalesReport();
     }
 
     @GetMapping("/products/pdf")
-    public ResponseEntity<byte[]> getProductSalesReportPdf(HttpSession session) throws Exception {
-        requireAdmin(session);
+    public ResponseEntity<byte[]> getProductSalesReportPdf(HttpServletRequest request) throws Exception {
+        requireAdmin(request);
         List<ProductSalesReport> data = reportService.getProductSalesReport();
         byte[] pdf = jasperReportService.exportProductSalesReportPdf(data);
 
@@ -47,8 +47,8 @@ public class ReportController {
                 .body(pdf);
     }
 
-    private void requireAdmin(HttpSession session) {
-        Long memberId = (Long) session.getAttribute("memberId");
+    private void requireAdmin(HttpServletRequest request) {
+        Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
             throw new IllegalStateException("尚未登入");
         }

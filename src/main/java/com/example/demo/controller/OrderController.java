@@ -5,7 +5,7 @@ import com.example.demo.model.Order;
 import com.example.demo.model.OrderItemDetail;
 import com.example.demo.service.MemberService;
 import com.example.demo.service.OrderService;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +23,8 @@ public class OrderController {
         this.memberService = memberService;
     }
 
-    private Member getCurrentMember(HttpSession session) {
-        Long memberId = (Long) session.getAttribute("memberId");
+    private Member getCurrentMember(HttpServletRequest request) {
+        Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
             throw new IllegalStateException("尚未登入");
         }
@@ -32,14 +32,14 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getMyOrders(HttpSession session) {
-        Member member = getCurrentMember(session);
+    public ResponseEntity<List<Order>> getMyOrders(HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         return ResponseEntity.ok(orderService.getOrdersForMember(member));
     }
 
     @GetMapping("/{id}/items")
-    public ResponseEntity<List<OrderItemDetail>> getOrderItems(@PathVariable Long id, HttpSession session) {
-        Member member = getCurrentMember(session);
+    public ResponseEntity<List<OrderItemDetail>> getOrderItems(@PathVariable Long id, HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         return ResponseEntity.ok(orderService.getOrderItems(member, id));
     }
 }

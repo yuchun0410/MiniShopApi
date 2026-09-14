@@ -1,6 +1,6 @@
 package com.example.demo.controller;
 
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +23,8 @@ public class CartController {
         this.memberService = memberService;
     }
 
-    private Member getCurrentMember(HttpSession session) {
-        Long memberId = (Long) session.getAttribute("memberId");
+    private Member getCurrentMember(HttpServletRequest request) {
+        Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
             throw new IllegalStateException("尚未登入");
         }
@@ -32,16 +32,16 @@ public class CartController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CartItem>> getCart(HttpSession session) {
-        Member member = getCurrentMember(session);
+    public ResponseEntity<List<CartItem>> getCart(HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         return ResponseEntity.ok(cartService.getCart(member));
     }
 
     @PostMapping
     public ResponseEntity<CartItem> addToCart(@RequestParam Long productId,
                                                @RequestParam Integer quantity,
-                                               HttpSession session) {
-        Member member = getCurrentMember(session);
+                                               HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         CartItem item = cartService.addToCart(member, productId, quantity);
         return ResponseEntity.ok(item);
     }
@@ -49,15 +49,15 @@ public class CartController {
     @PutMapping("/{id}")
     public ResponseEntity<CartItem> updateQuantity(@PathVariable Long id,
                                                     @RequestParam Integer quantity,
-                                                    HttpSession session) {
-        Member member = getCurrentMember(session);
+                                                    HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         CartItem item = cartService.updateQuantity(member, id, quantity);
         return ResponseEntity.ok(item);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> removeItem(@PathVariable Long id, HttpSession session) {
-        Member member = getCurrentMember(session);
+    public ResponseEntity<Void> removeItem(@PathVariable Long id, HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         cartService.removeItem(member, id);
         return ResponseEntity.ok().build();
     }
@@ -65,8 +65,8 @@ public class CartController {
     // 結帳（先簡化成：清空購物車，之後要做訂單記錄可以在這裡擴充）
     // 結帳：建立訂單 + 訂單明細，並清空購物車
     @PostMapping("/checkout")
-    public ResponseEntity<com.example.demo.model.Order> checkout(HttpSession session) {
-        Member member = getCurrentMember(session);
+    public ResponseEntity<com.example.demo.model.Order> checkout(HttpServletRequest request) {
+        Member member = getCurrentMember(request);
         com.example.demo.model.Order order = cartService.checkout(member);
         return ResponseEntity.ok(order);
     }
