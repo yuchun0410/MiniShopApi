@@ -1,6 +1,6 @@
 # MiniShopApi
 
-一個前後端分離的購物網站後端專案，涵蓋會員系統、商品瀏覽（含換頁與關鍵字查詢）、購物車、訂單流程，以及銷售報表 PDF 匯出。資料存取層以 Dao 介面統一對外，每個模組底下同時準備了 JPA 與 MyBatis 兩種實作，透過 `@Qualifier` 切換要注入哪一版，藉此練習依賴反轉（Dependency Inversion）在真實專案中的樣子。
+一個前後端分離的購物網站後端專案，涵蓋會員系統、商品瀏覽（含換頁與關鍵字查詢）、商品上架與附件上傳、購物車、訂單流程，以及銷售報表 PDF 匯出。資料存取層以 Dao 介面統一對外，每個模組底下同時準備了 JPA 與 MyBatis 兩種實作，透過 `@Qualifier` 切換要注入哪一版，藉此練習依賴反轉（Dependency Inversion）在真實專案中的樣子。
 
 ## 技術棧
 
@@ -8,7 +8,8 @@
 | --- | --- |
 | 語言 / 框架 | Java 21、Spring Boot 4.1.1 |
 | Web | Spring Web MVC |
-| 安全性 | Spring Security（Session-based 登入，非 JWT） |
+| 安全性 | Spring Security + JWT（Access Token + Refresh Token 雙 token，RSA 非對稱式簽章，STATELESS，不使用 Session） |
+| 快取 / Token 儲存 | Redis（儲存 Refresh Token，登出即刪除；未連 Redis 的環境可切回記憶體版實作） |
 | 資料存取 | Spring Data JPA、MyBatis 3.0.4（每個模組都有兩版實作，見下方架構說明） |
 | 資料庫 | MySQL（本機開發），並已預備 PostgreSQL 驅動供雲端部署使用 |
 | 報表 | JasperReports 7.0.1（含中文 PDF 匯出） |
@@ -18,25 +19,29 @@
 ## 系統架構
 
 ```
-Controller → Service → Dao（介面） → DaoImpl（MyBatis 版 / JPA 版，二選一注入）
-                                        ├─ XxxMyBatisImpl → Mapper + Mapper.xml
-                                        └─ XxxJpaImpl     → Repository（Spring Data JPA）
+Client → JwtAuthenticationFilter（解析 Authorization: Bearer token，設定 memberId）
+       → Controller → Service → Dao（介面） → DaoImpl（MyBatis 版 / JPA 版，二選一注入）
+                                                 ├─ XxxMyBatisImpl → Mapper + Mapper.xml
+                                                 └─ XxxJpaImpl     → Repository（Spring Data JPA）
 ```
 
-五個模組（Member、Product、CartItem、Order、OrderItem）的 Dao 介面底下，都同時存在 `XxxMyBatisImpl` 與 `XxxJpaImpl` 兩個實作類別，各自標註不同的 Bean 名稱（例如 `productDaoMyBatis` / `productDaoJpa`）。因為同一個介面有兩個候選 Bean，Spring 在注入時無法自動判斷要用哪一個，所以每個 Service 建構子上都用 `@Qualifier("xxxDaoMyBatis")` 明確指定——目前全部模組預設都指定 MyBatis 版，未來要切換成 JPA 版，只要把對應 `@Qualifier` 裡的字串改掉即可，Service／Controller 完全不用改動，這正是 Dao 介面抽象化底層技術的用意。
+六個模組（Member、Product、ProductAttachment、CartItem、Order、OrderItem）的 Dao 介面底下，都同時存在 `XxxMyBatisImpl` 與 `XxxJpaImpl` 兩個實作類別，各自標註不同的 Bean 名稱（例如 `productDaoMyBatis` / `productDaoJpa`）。因為同一個介面有兩個候選 Bean，Spring 在注入時無法自動判斷要用哪一個，所以每個 Service 建構子上都用 `@Qualifier("xxxDaoMyBatis")` 明確指定——目前全部模組預設都指定 MyBatis 版，未來要切換成 JPA 版，只要把對應 `@Qualifier` 裡的字串改掉即可，Service／Controller 完全不用改動，這正是 Dao 介面抽象化底層技術的用意。
 
 | 模組 | 目前使用 | 也有實作 |
 | --- | --- | --- |
 | Member（會員） | MyBatis | JPA |
 | Product（商品） | MyBatis | JPA |
+| ProductAttachment（商品附件） | MyBatis | JPA |
 | CartItem（購物車） | MyBatis | JPA |
 | Order（訂單） | MyBatis | JPA |
 | OrderItem（訂單明細） | MyBatis | JPA |
 
 ## 功能模組
 
-- **會員系統**：註冊、登入／登出（Session）、角色權限（MEMBER／ADMIN）、管理員可查詢會員列表（換頁＋帳號／姓名關鍵字查詢）並管理角色、刪除會員
+- **會員系統**：註冊、登入／登出、角色權限（MEMBER／ADMIN）、管理員可查詢會員列表（換頁＋帳號／姓名關鍵字查詢）並管理角色、刪除會員
+- **JWT 驗證**：登入同時簽發 Access Token（15 分鐘）與 Refresh Token（7 天），皆採 RSA 非對稱式簽章（private key 簽發、public key 驗證）；Refresh Token 存進 Redis，登出時刪除；`/api/members/refresh` 用 Refresh Token 換發新的 Access Token
 - **商品瀏覽**：換頁（`page`／`size`）＋ 關鍵字查詢（商品名稱模糊搜尋），兩者可同時使用；單一商品查詢
+- **商品上架／附件上傳**：管理員可上傳檔案（格式不限，PDF／Excel／圖片皆可，也可不附檔案）同時建立新商品，`@Transactional` 包住「新增商品」與「新增附件紀錄」兩筆資料庫寫入，並手動處理檔案系統寫入不受交易保護的邊界問題（見下方踩坑紀錄）；管理員也可刪除商品（連同附件紀錄與實體檔案）
 - **購物車**：加入商品、修改數量、刪除品項（皆會先驗證品項是否屬於目前登入者本人，避免 IDOR）、結帳（結帳會建立訂單並清空購物車）
 - **訂單**：查詢自己的訂單列表、查詢訂單明細（回傳含商品名稱的 `OrderItemDetail` DTO，並附擁有者權限檢查）
 - **銷售報表**：以 JSON 或 PDF 匯出商品銷售彙總（銷售數量、營收），限管理員存取；PDF 內含正體中文，並自訂樣式（表頭配色、框線、對齊）
@@ -46,14 +51,17 @@ Controller → Service → Dao（介面） → DaoImpl（MyBatis 版 / JPA 版�
 | 方法 | 路徑 | 說明 | 權限 |
 | --- | --- | --- | --- |
 | POST | `/api/members/register` | 註冊會員 | 開放 |
-| POST | `/api/members/login` | 登入 | 開放 |
-| POST | `/api/members/logout` | 登出 | 需登入 |
+| POST | `/api/members/login` | 登入（回傳 member + accessToken + refreshToken） | 開放 |
+| POST | `/api/members/refresh` | 用 Refresh Token 換發新的 Access Token | 需帶 Refresh Token |
+| POST | `/api/members/logout` | 登出（刪除 Redis 中的 Refresh Token） | 需登入 |
 | GET | `/api/members/me` | 取得目前登入會員 | 需登入 |
 | GET | `/api/members?page=&size=&keyword=` | 會員列表（換頁＋查詢，回傳 `PageResponse`，keyword 比對帳號／姓名） | ADMIN |
 | PUT | `/api/members/{id}/role` | 修改會員角色 | ADMIN |
 | DELETE | `/api/members/{id}` | 刪除會員 | ADMIN |
 | GET | `/api/products?page=&size=&keyword=` | 商品列表（換頁＋查詢，回傳 `PageResponse`） | 開放 |
 | GET | `/api/products/{id}` | 商品詳情 | 開放 |
+| POST | `/api/products` | 上架新商品＋上傳附件（multipart/form-data，附件選填） | ADMIN |
+| DELETE | `/api/products/{id}` | 刪除商品（含附件紀錄與實體檔案） | ADMIN |
 | GET | `/api/cart` | 查詢購物車 | 需登入 |
 | POST | `/api/cart` | 加入購物車 | 需登入 |
 | PUT | `/api/cart/{id}` | 修改購物車品項數量 | 需登入 |
@@ -78,9 +86,9 @@ Controller → Service → Dao（介面） → DaoImpl（MyBatis 版 / JPA 版�
 
 `keyword` 可不帶或帶空字串，代表不篩選、回傳全部商品的分頁結果。
 
-## 資料庫設計
+## 資料庫設計  
 
-主要資料表對應的 Entity：`Member`、`Product`、`CartItem`、`Order`、`OrderItem`。`Order`／`OrderItem` 的關聯欄位使用外鍵 ID（`memberId`／`orderId`／`productId`）直接存取，取代 JPA 的 `@ManyToOne` 物件關聯，避免 N+1 查詢與序列化時的循環參照問題；`CartItem` 則保留了真正的 JPA 物件關聯（`@ManyToOne Member` / `@ManyToOne Product`），兩種寫法在專案裡並存，也是為了同時保留兩種資料存取技術的實際範例。
+主要資料表對燉的 Entity：`Member`、`Product`、`ProductAttachment`、`CartItem`8、`Order`、`OrderItem`。`Order`／`OrderItem` 的關聯欄位使用外鍵 ID（`memberId`／`orderId`／`productId`）直接存取，取代 JPA 的 `@ManyToOne` 物件關聯，避免 N+1 查詢與序列化時的循環參照問題；`CartItem` 則保留了真正的 JPA 物件關聯（`@ManyToOne Member` / `@ManyToOne Product`），兩種寫法在專案裡並存，也是為了同時保留兩種資料存取技術的實際範例。`ProductAttachment` 同樣只存 `productId` 這個純外鍵欄位（沒有用 `@ManyToOne`），代表商品刪除時不會被資料庫外鍵擋下來，需要在程式碼裡自行處理附件紀錄與實體檔案的清除。
 
 ## 技術重點與踩坑紀錄
 
@@ -97,37 +105,42 @@ Controller → Service → Dao（介面） → DaoImpl（MyBatis 版 / JPA 版�
 MyBatis 版換頁要自己拼 `LIMIT`/`OFFSET`、手動用 `(page - 1) * size` 算 offset，並另外寫一支 `COUNT(*)` 查詢算總筆數；JPA 版則是 `productRepository.findAll(PageRequest.of(page - 1, size))` 就內建處理好分頁與計數（`PageRequest` 是 0-based，所以要減 1）。查詢功能也是一樣的落差：MyBatis 要在 XML 用 `<if>` 動態組 `WHERE ... LIKE`，JPA 則是宣告 `findByNameContaining(keyword, pageable)` 這種衍生查詢方法名稱就自動生成 SQL。這組對照很適合用來說明「全自動 ORM」與「半自動 ORM」實際開發體感上的差異。
 
 **5. DevTools 不會自動同步 `src/main/resources` 的外部修改**
-Spring Boot DevTools 監看的是 `target/classes`，如果直接在 IDE 外部（例如用腳本）修改 `src/main/resources` 底下的檔案（`.jrxml`、Mapper `.xml`），必須手動同步一份到對應的 `target/classes` 路徑，或是讓 IDE 重新建置，否則應用程式重啟後讀到的還是舊內容。
+Spring Boot DevTools 監看的是 `target/classes`，如果直接在 IDE 外部（例如用腳本）修改 `src/main/resources` 底下的檔案（`.jrxml`、Mapper `.xml`、`application.properties`），必須手動同步一份到對應的 `target/classes` 路徑，或是在 IDE 裡按重新整理（Eclipse 是 F5）讓 IDE 重新建置，否則應用程式重啟後讀到的還是舊內容。
 
 **6. 購物車 IDOR（Insecure Direct Object Reference）弱點修復**
-原本修改／刪除購物車品項是直接用 `cartItemId` 查到資料就執行，沒有驗證這筆資料是不是「目前登入者本人」的購物車，等於任何登入的使用者只要猜得到別人的 `cartItemId`，就能改動或刪除別人購物車裡的東西。修法一開始想用 `cartItemDao.findById(id)` 查出來後比對 `item.getMember().getId()`，但先檢查 `CartItemMapper.xml` 才發現 MyBatis 版的 `resultMap` 根本沒有把 `member` 這個關聯查出來（只查了 `product`），這樣比對永遠會是 `null`。改用 `cartItemDao.findByMember(member)` 先撈出「本人所有」的購物車列表，再用 stream 比對目標 id 是否在裡面，同時避開了關聯欄位未映射的問題，也讓修法同時對 MyBatis／JPA 兩種實作都成立。
+原本修改／刪除購物車品項是直接用 `cartItemId` 查到資料就執行，沒有驗證這筆資料是不是「目前登入者本人」的購物車，等於任何登入的使用者只要猜得到別人的 `cartItemId`，就能改動或刪除別人購物車裡的東西。修法一開始想用 `cartItemDao.findById(id)` 查出來後比對 `item.getMember().getId()`，但先檢查 `CartItemMapper.xml` 才發現 MyBatis 版的 `resultMap` 根本沒有把 `member` 這個關聯查出侅（只查了 `product`)，這格比對永遠是新同時除容兛虽。改用 `cartItemDao.findByMember(member)` 先撈出「本人所有」的購物車列表，再用 stream 比對目標 id 是否在裡面，同時避開了關聯欄位未映射的問題，也讓修法同時對 MyBatis／JPA 兩種實作都成立。
 
 **7. `OrderItem` 只存外鍵 ID，前端不能直接拿到商品名稱**
 `OrderItem`／`Order` 為了避免 N+1 查詢與序列化循環參照（見上方「資料庫設計」），關聯欄位設計成單純的外鍵 `Long`（`productId`），而不是 JPA 物件關聯。這代表 `/api/orders/{id}/items` 原本回傳的 `OrderItem` 物件裡沒有商品名稱，只有一個數字 ID。解法是新增一個 `OrderItemDetail` DTO，在 Service 層逐筆用 `productId` 查一次商品名稱組成新物件再回傳（商品已被刪除的情況會顯示「（商品已下架）」而不是 null），把「資料庫關聯怎麼設計」與「API 該回傳什麼形狀」這兩個決策分開處理。
 
+**8. RSA 私鑰的 PKCS1 / PKCS8 格式陷阱**
+`openssl genpkey -algorithm RSA` 產生的 PEM 檔本身就是 PKCS8 格式（`-----BEGIN PRIVATE KEY-----`），但如果再用 `openssl pkey -in xxx.pem -outform DER` 重新轉一次 DER，OpenSSL 3.x 會把它「解包」回最原始的 PKCS1 `RSAPrivateKey` 格式（純數字欄位的 SEQUENCE），而不是 Java `PKCS8EncodedKeySpec` 需要的 PKCS8 `PrivateKeyInfo` 包裝格式（多包了演算法識別資訊），載入時會丟出 `InvalidKeySpecException: algid parse error, not a sequence`。用 `openssl asn1parse` 比對兩者的 ASN.1 結構才確認問題所在。修法是直接從原始 PEM 檔裡把 Base64 內容取出來（只去掉頭尾的 `-----BEGIN/END PRIVATE KEY-----`），不要再經過 `openssl pkey -outform DER` 這道轉換。
+
+**9. `@Transactional` 不保護檔案系統寫入**
+商品上傳附件功能刻意設計成「檔案先寫進硬碟，再進行資料庫交易」：如果交易中途失敗，Spring 會自動 rollback 資料庫的部分，但硬碟上已經寫入的檔案不會自動消失，因此在 `catch` 區塊裡手動呼叫刪除檔案的補償邏輯，避免留下沒有對應資料庫紀錄的孤兒檔案。刪除商品則是反過來：先在交易內刪除資料庫紀錄，確定成功、方法正常執行完之後，才刪除硬碟上的實體檔案——這樣萬一刪檔案失敗，頂多留下孤兒檔案（可回收），不會出現「資料庫還有紀錄、但檔案已被刪除」這種更麻煩的斷鏈情況。這組設計具體示範了 `@Transactional` 的實際保護範圍：只涵蓋 JDBC／資料庫操作，不涵蓋任何檔案系統或外部服務的呼叫。
+
 ## 部署準備
 
-目前資料庫連線、CORS 允許來源、Session Cookie 的 `SameSite`／`Secure` 設定，都已經改成用環境變數帶入（見 `application.properties`），本機開發沒有設定這些環境變數時會自動 fallback 成本機 MySQL、`http://localhost:5173` 等預設值，行為與改動前一致。規劃中的部署方式：
+目前資料庫連線、CORS 允許來源，都已經改成用環境變數帶入（見 `application.properties`），本機開發沒有設定這些環境變數時會自動 fallback 成本機 MySQL、`http://localhost:5173` 等預設值，行為與改動前一致。規劃中的部署方式：
 
 - 後端：Render（免費方案）
-- 資料庫：Render 內建的免費 PostgreSQL（`pom.xml` 已加入 PostgreSQL 驅動）
+- 資料庫：Render 目前只有原生 PostgreSQL（無原生 MySQL），計畫改用 PostgreSQL 驅動或改接外部免費 MySQL（例如 Aiven）
+- Redis：Render 的 Key Value 服務（Redis 協定相容），免費方案無持久化，服務重啟會清空 Refresh Token
 - 前端：Vercel
 
-部署時需要在 Render 設定的環境變數：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`DB_DRIVER`（填 `org.postgresql.Driver`）、`CORS_ALLOWED_ORIGIN`（填實際前端網址）、`COOKIE_SAME_SITE=none`、`COOKIE_SECURE=true`（跨網域的 Session Cookie 必須設定，否則登入後續請求會被瀏覽器擋掉）。
-
-Render 免費方案的資料庫閒置一段時間會被回收，重新建立後需要重新填入連線資訊；商品資料與測試用管理員帳號（`admin`）都會在應用程式啟動時自動重新建立（見 `DataInitializer`），額外手動註冊的會員資料則不會自動還原。
+部署時需要在 Render 設定的環境變數：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`DB_DRIVER`、`CORS_ALLOWED_ORIGIN`（填實際前端網址）、`JWT_PRIVATE_KEY`／`JWT_PUBLIC_KEY`（正式環境務必重新產生一組，不能沿用本機開發用的預設值）、`REDIS_HOST`／`REDIS_PORT`、`UPLOAD_DIR`。另外因為 Render 免費方案的網頁服務硬碟是非持久化的，上傳的附件檔案在服務重啟或重新部署後會消失，正式使用需改接物件儲存服務（例如 S3）。
 
 ## 快速開始
 
-1. 建立 MySQL 資料庫 `mini_shop`
+1. 建立 MySQL 資料庫 `mini_shop`，並確認本機有安裝並啟動 Redis（`redis-cli ping` 應回傳 `PONG`）
 2. 依實際環境調整資料庫帳密（可直接改 `application.properties` 預設值，或改用環境變數 `DB_URL`／`DB_USERNAME`／`DB_PASSWORD`）
 3. 執行 `mvn spring-boot:run`（或在 IDE 中啟動 `MiniShopApiApplication`）
 4. 首次啟動會自動建立測試商品資料與一組測試管理員帳號：`admin` / `admin123`
 
 ## 後續規劃
 
-- 補齊單元測試
+- 補齊自動化測試（尤其是 `@Transactional` rollback 情境，適合用 Mockito 驗證交易失敗時的補償邏輯是否有正確執行）
 - `.jrxml` 內字型檔路徑目前為本機絕對路徑，尚未處理跨環境部署的可攜性
 - 清理專案中殘留但未使用的 JPA 標註
-- 實際完成雲端部署（Render + Postgres + Vercel），並驗證跨網域 Session Cookie 在不同瀏覽器（尤其 Safari／Firefox）下的行為
-- 將登入機制由 Session 改為 JWT（Access Token + Refresh Token 雙 token），搭配 Redis 儲存 Refresh Token，處理登出撤銷與無狀態驗證
+- 實際完成雲端部署（Render + 資料庫 + Redis + Vercel），並驗證正式環境下 JWT 驗證與檔案上傳功能是否正常運作
+- 商品附件檔案改接物件儲存服務（例如 S3），取代目前存在網頁伺服器本機硬碟的做法
