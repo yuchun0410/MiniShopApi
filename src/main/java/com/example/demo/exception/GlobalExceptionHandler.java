@@ -25,9 +25,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleAccessDenied(AccessDeniedException e) {
         return ResponseEntity.status(403).body(e.getMessage());
     }
-    // 資料庫外鍵限制擋下來的刪除/更新（例如會員底下還有訂單）-> 400，回友善訊息
+    // 資料庫外鍵限制擋下來的刪除/更新（例如會員底下還有訂單、商品還在購物車裡）-> 400，回友善訊息
+    // 訊息故意寫通用一點，因為這個 handler 是共用的，不是只有會員刪除會觸發
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<String> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException e) {
-        return ResponseEntity.badRequest().body("此筆會員資料仍有訂單，無法刪除");
+        return ResponseEntity.badRequest().body("此筆資料仍被其他資料參照，無法刪除");
     }
 }

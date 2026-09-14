@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.ProductAttachmentMapper">
+
+    <resultMap id="ProductAttachmentResultMap" type="com.example.demo.model.ProductAttachment">
+        <id property="id" column="id"/>
+        <result property="productId" column="product_id"/>
+        <result property="originalFileName" column="original_file_name"/>
+        <result property="storedFileName" column="stored_file_name"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="uploadedAt" column="uploaded_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.example.demo.model.ProductAttachment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product_attachment (product_id, original_file_name, stored_file_name, file_path, file_size, uploaded_at)
+        VALUES (#{productId}, #{originalFileName}, #{storedFileName}, #{filePath}, #{fileSize}, #{uploadedAt})
+    </insert>
+
+    <select id="findByProductId" resultMap="ProductAttachmentResultMap">
+        SELECT * FROM product_attachment WHERE product_id = #{productId}
+    </select>
+
+    <delete id="deleteByProductId" parameterType="long">
+        DELETE FROM product_attachment WHERE product_id = #{productId}
+    </delete>
+
+</mapper>

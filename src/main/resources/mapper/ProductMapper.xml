@@ -11,6 +11,15 @@
     </resultMap>
 
   
+    <insert id="insert" parameterType="com.example.demo.model.Product" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product (name, price, stock)
+        VALUES (#{name}, #{price}, #{stock})
+    </insert>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM product WHERE id = #{id}
+    </delete>
+
     <select id="findAll" resultMap="ProductResultMap">
         SELECT * FROM product
     </select>

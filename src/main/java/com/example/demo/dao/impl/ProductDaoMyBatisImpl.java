@@ -18,6 +18,17 @@ public class ProductDaoMyBatisImpl implements ProductDao {
     }
 
     @Override
+    public Product save(Product product) {
+        productMapper.insert(product);
+        return product;
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        productMapper.deleteById(id);
+    }
+
+    @Override
     public List<Product> findAll() {
         return productMapper.findAll();
     }

@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Param;
 import com.example.demo.model.Product;
 
 public interface ProductMapper {
+	int insert(Product product);
+	int deleteById(Long id);
 	List<Product> findAll();
 	Product findById(Long id);
 

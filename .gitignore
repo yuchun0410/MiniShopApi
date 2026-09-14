@@ -36,3 +36,6 @@ build/
 logs/
 .DS_Store
 Claude outputs/
+
+### 上傳檔案（本機測試用，不進版控）###
+uploads/

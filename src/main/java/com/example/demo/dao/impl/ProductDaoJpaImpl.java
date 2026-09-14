@@ -20,6 +20,16 @@ public class ProductDaoJpaImpl implements ProductDao {
     }
 
     @Override
+    public Product save(Product product) {
+        return productRepository.save(product);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        productRepository.deleteById(id);
+    }
+
+    @Override
     public List<Product> findAll() {
         return productRepository.findAll();
     }
