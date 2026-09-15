@@ -11,7 +11,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    // unique = true：商品名稱不能重複，Hibernate 會在這個欄位上建一個 UNIQUE 索引
+    // 注意：如果資料庫裡目前已經有重複名稱的資料，ddl-auto=update 加這個限制可能會失敗或被跳過，
+    // 要先手動清過資料再重啟
+    @Column(nullable = false, length = 100, unique = true)
     private String name;
 
     // 金額用 BigDecimal,不要用 double/float(浮點數運算會有誤差問題)

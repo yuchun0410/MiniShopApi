@@ -108,4 +108,25 @@ public class ProductServiceImpl implements ProductService {
         }
         return attachments.get(0);
     }
+
+    @Override
+    @Transactional
+    public ProductAttachment updateAttachment(Long productId, MultipartFile file) {
+        findById(productId); // 商品不存在的話這裡就會丟例外，不會存出一筆孤兒附件
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("請選擇要上傳的檔案");
+        }
+        productAttachmentDao.deleteByProductId(productId); // 一個商品只留一筆附件，舊的先清掉再存新的
+        try {
+            ProductAttachment attachment = new ProductAttachment();
+            attachment.setProductId(productId);
+            attachment.setOriginalFileName(file.getOriginalFilename());
+            attachment.setFileData(file.getBytes());
+            attachment.setFileSize(file.getSize());
+            attachment.setContentType(file.getContentType());
+            return productAttachmentDao.save(attachment);
+        } catch (IOException e) {
+            throw new IllegalStateException("讀取上傳檔案失敗: " + file.getOriginalFilename(), e);
+        }
+    }
 }

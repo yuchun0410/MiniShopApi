@@ -17,6 +17,10 @@ public interface ProductService {
     // 刪除商品：先刪 DB（商品 + 附件紀錄），交易成功後才刪硬碟上的實體檔案
     void deleteProduct(Long id);
 
-    // 取得商品的附件中繼資料，給 Controller 讀檔用
+    // 取得商品的附件（含檔案內容 file_data、content type），給 Controller 讀檔用
     ProductAttachment getAttachment(Long productId);
+
+    // 幫既有商品換一張附件：不用把商品刪掉重建，只是把 product_attachment 那筆資料換掉
+    // 一個商品只留一筆附件，所以會先清掉舊的再存新的
+    ProductAttachment updateAttachment(Long productId, MultipartFile file);
 }

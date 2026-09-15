@@ -34,7 +34,7 @@
         <if test="keyword != null and keyword != ''">
             WHERE name LIKE CONCAT('%', #{keyword}, '%')
         </if>
-        ORDER BY id LIMIT #{limit} OFFSET #{offset}
+        ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <!-- 換頁 + 查詢用：算符合條件的總筆數，前端要靠這個算總頁數 -->

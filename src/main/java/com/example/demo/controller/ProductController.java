@@ -101,6 +101,18 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
+    // 幫既有商品換一張附件（管理員專用）：不用把商品刪掉重建，只換 product_attachment 那筆資料
+    // 一個商品只留一筆附件，這裡會直接覆蓋掉舊的（見 ProductServiceImpl.updateAttachment）
+    @PostMapping(value = "/{id}/attachment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> updateAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request) {
+        requireAdmin(request);
+        productService.updateAttachment(id, file);
+        return ResponseEntity.ok().build();
+    }
+
     // 共用檢查：沒登入 -> 丟例外讓 GlobalExceptionHandler 轉成 401；不是管理員 -> 轉成 403
     private void requireAdmin(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
