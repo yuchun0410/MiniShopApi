@@ -51,6 +51,15 @@ public class FileStorageService {
         return UUID.randomUUID() + ext;
     }
 
+    // 讀取硬碟上實際的檔案內容，給附件下載/預覽端點用
+    public byte[] load(String filePath) {
+        try {
+            return Files.readAllBytes(Paths.get(filePath));
+        } catch (IOException e) {
+            throw new IllegalStateException("讀取檔案失敗: " + filePath, e);
+        }
+    }
+
     // 補償動作：DB 交易失敗時，把已經寫入硬碟的檔案刪掉，避免孤兒檔案殘留
     public void delete(String filePath) {
         try {

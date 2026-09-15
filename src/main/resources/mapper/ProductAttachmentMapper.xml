@@ -9,12 +9,13 @@
         <result property="storedFileName" column="stored_file_name"/>
         <result property="filePath" column="file_path"/>
         <result property="fileSize" column="file_size"/>
+        <result property="contentType" column="content_type"/>
         <result property="uploadedAt" column="uploaded_at"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.example.demo.model.ProductAttachment" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO product_attachment (product_id, original_file_name, stored_file_name, file_path, file_size, uploaded_at)
-        VALUES (#{productId}, #{originalFileName}, #{storedFileName}, #{filePath}, #{fileSize}, #{uploadedAt})
+        INSERT INTO product_attachment (product_id, original_file_name, stored_file_name, file_path, file_size, content_type, uploaded_at)
+        VALUES (#{productId}, #{originalFileName}, #{storedFileName}, #{filePath}, #{fileSize}, #{contentType}, #{uploadedAt})
     </insert>
 
     <select id="findByProductId" resultMap="ProductAttachmentResultMap">

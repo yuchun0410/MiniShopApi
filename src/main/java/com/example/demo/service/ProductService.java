@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.model.PageResponse;
 import com.example.demo.model.Product;
+import com.example.demo.model.ProductAttachment;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
@@ -15,4 +16,7 @@ public interface ProductService {
 
     // 刪除商品：先刪 DB（商品 + 附件紀錄），交易成功後才刪硬碟上的實體檔案
     void deleteProduct(Long id);
+
+    // 取得商品的附件中繼資料，給 Controller 讀檔用
+    ProductAttachment getAttachment(Long productId);
 }

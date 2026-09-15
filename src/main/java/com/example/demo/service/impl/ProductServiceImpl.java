@@ -80,6 +80,7 @@ public class ProductServiceImpl implements ProductService {
                 attachment.setStoredFileName(storedFileName);
                 attachment.setFilePath(storedPath);
                 attachment.setFileSize(file.getSize());
+                attachment.setContentType(file.getContentType());
                 productAttachmentDao.save(attachment);
             }
 
@@ -113,5 +114,18 @@ public class ProductServiceImpl implements ProductService {
         for (ProductAttachment attachment : attachments) {
             fileStorageService.delete(attachment.getFilePath());
         }
+    }
+
+    // 取得商品的附件中繼資料，找不到就丟例外（給 Controller 的附件讀取端點用）
+    // 這裡是單一 SELECT，不是為了原子性才加 @Transactional，
+    // readOnly = true 是告訴 Spring/Hibernate 這是唯讀查詢，可以省略 flush 之類的檢查，做一點效能優化
+    @Override
+    @Transactional(readOnly = true)
+    public ProductAttachment getAttachment(Long productId) {
+        List<ProductAttachment> attachments = productAttachmentDao.findByProductId(productId);
+        if (attachments.isEmpty()) {
+            throw new IllegalArgumentException("此商品沒有附件");
+        }
+        return attachments.get(0);
     }
 }

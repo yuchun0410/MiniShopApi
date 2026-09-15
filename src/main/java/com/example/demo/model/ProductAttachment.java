@@ -31,6 +31,10 @@ public class ProductAttachment {
     @Column(nullable = false)
     private Long fileSize;
 
+    // 上傳當下的 MIME type（例如 image/png、application/pdf），讓瀏覽器知道怎麼呈現這個檔案
+    @Column(length = 100)
+    private String contentType;
+
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
@@ -59,6 +63,9 @@ public class ProductAttachment {
 
     public Long getFileSize() { return fileSize; }
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
 
     public LocalDateTime getUploadedAt() { return uploadedAt; }
     public void setUploadedAt(LocalDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
