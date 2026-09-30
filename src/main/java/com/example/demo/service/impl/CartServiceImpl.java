@@ -104,6 +104,18 @@ public class CartServiceImpl implements CartService {
             throw new IllegalStateException("購物車是空的，無法結帳");
         }
 
+        // 結帳前先檢查每一項的庫存夠不夠，不夠就直接擋下來、不建立訂單。
+        // 註：這裡只是「檢查完再扣」的簡單版本，沒有處理「兩個人同時搶最後一件庫存」的併發情境
+        // ——真的要做到嚴謹的話，需要在 Product 上加樂觀鎖（@Version）或悲觀鎖（SELECT ... FOR UPDATE）。
+        for (CartItem item : items) {
+            Product product = item.getProduct();
+            if (product.getStock() < item.getQuantity()) {
+                log.warn("結帳失敗，庫存不足，memberId={}, productId={}, 需要數量={}, 目前庫存={}",
+                        member.getId(), product.getId(), item.getQuantity(), product.getStock());
+                throw new IllegalStateException("庫存不足：" + product.getName());
+            }
+        }
+
         BigDecimal total = items.stream()
                 .map(item -> item.getProduct().getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -120,6 +132,11 @@ public class CartServiceImpl implements CartService {
             orderItem.setQuantity(item.getQuantity());
             orderItem.setUnitPrice(item.getProduct().getPrice());
             orderItemDao.save(orderItem);
+
+            // 結帳成功才真的把庫存扣掉（加入購物車的階段不扣，只有真的結帳完成才算數）
+            Product product = item.getProduct();
+            product.setStock(product.getStock() - item.getQuantity());
+            productDao.save(product);
         }
 
         cartItemDao.deleteByMember(member);
