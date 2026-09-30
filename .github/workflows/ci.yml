@@ -1,0 +1,39 @@
+name: CI
+
+# 觸發時機：push 到 main，或是對 main 開 Pull Request 時自動執行
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 把 repo 程式碼拉下來到 CI 的執行環境
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 安裝專案需要的 JDK 版本（跟 pom.xml 裡的 java.version 對齊）
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # 3. 用專案自帶的 Maven Wrapper 編譯，不依賴 CI 機器上有沒有裝 Maven
+      - name: Build with Maven Wrapper
+        run: ./mvnw -B clean compile
+
+      # 4. 只跑「純」單元測試（CartServiceImplTest：用 Mockito 把 Dao 都 mock 掉，
+      #    不需要連真的資料庫），所以可以直接在 CI 裡跑，不用額外架 MySQL/Redis。
+      - name: Run unit tests (CartServiceImplTest)
+        run: ./mvnw -B test -Dtest=CartServiceImplTest
+
+      # 註：專案裡另一個測試 MemberMapperTest 是 @SpringBootTest，
+      # 會真的連上 MySQL + Redis 才能跑，所以目前故意沒有把它加進 CI，
+      # 之後可以加 services（docker container）啟動 MySQL/Redis 並灌測試資料，
+      # 才能把它也接進來，變成完整的「整合測試」CI 階段。
