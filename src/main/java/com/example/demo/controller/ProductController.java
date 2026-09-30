@@ -7,6 +7,8 @@ import com.example.demo.model.ProductAttachment;
 import com.example.demo.service.MemberService;
 import com.example.demo.service.ProductService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,8 @@ import java.net.URLConnection;
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductController.class);
 
     private final ProductService productService;
     private final MemberService memberService;
@@ -65,6 +69,7 @@ public class ProductController {
                 mediaType = MediaType.parseMediaType(resolvedContentType);
             } catch (org.springframework.http.InvalidMediaTypeException e) {
                 // 猜出來或存的值不是合法 MIME type 的話就退回預設值，不要讓整支 API 爆掉
+                log.warn("商品附件的 content type 無法解析，改用預設值，productId={}, rawContentType={}", id, resolvedContentType);
             }
         }
 
@@ -117,10 +122,12 @@ public class ProductController {
     private void requireAdmin(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
+            log.warn("未登入狀態嘗試存取商品管理 API，uri={}", request.getRequestURI());
             throw new IllegalStateException("尚未登入");
         }
         Member current = memberService.findById(memberId);
         if (current.getRole() != com.example.demo.model.Role.ADMIN) {
+            log.warn("非管理員嘗試存取商品管理 API，memberId={}, uri={}", memberId, request.getRequestURI());
             throw new com.example.demo.exception.AccessDeniedException("需要管理員權限");
         }
     }

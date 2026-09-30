@@ -10,6 +10,8 @@ import com.example.demo.model.OrderItem;
 import com.example.demo.model.OrderItemDetail;
 import com.example.demo.model.Product;
 import com.example.demo.service.OrderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
     private final OrderDao orderDao;
     private final OrderItemDao orderItemDao;
@@ -32,15 +36,22 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<Order> getOrdersForMember(Member member) {
-        return orderDao.findByMember(member);
+        List<Order> orders = orderDao.findByMember(member);
+        log.info("查詢會員訂單列表，memberId={}, 訂單數量={}", member.getId(), orders.size());
+        return orders;
     }
 
     @Override
     public List<OrderItemDetail> getOrderItems(Member member, Long orderId) {
         Order order = orderDao.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("找不到此訂單"));
+                .orElseThrow(() -> {
+                    log.warn("查詢訂單明細失敗，找不到此訂單，memberId={}, orderId={}", member.getId(), orderId);
+                    return new IllegalArgumentException("找不到此訂單");
+                });
 
         if (!order.getMemberId().equals(member.getId())) {
+            log.warn("查詢訂單明細被拒絕，非本人訂單，memberId={}, orderId={}, 訂單實際擁有者memberId={}",
+                    member.getId(), orderId, order.getMemberId());
             throw new IllegalStateException("無權查看此訂單");
         }
 
@@ -48,7 +59,7 @@ public class OrderServiceImpl implements OrderService {
 
         // OrderItem 本身只存 productId，沒有商品名稱（跟 CartItem 不一樣，CartItem 還留著真的物件關聯）。
         // 這裡逐筆查一次商品名稱組成 DTO 回傳，商品被刪掉的情況也給個友善文字，不讓前端拿到 null。
-        return items.stream()
+        List<OrderItemDetail> details = items.stream()
                 .map(item -> {
                     String productName = productDao.findById(item.getProductId())
                             .map(Product::getName)
@@ -57,5 +68,8 @@ public class OrderServiceImpl implements OrderService {
                             item.getQuantity(), item.getUnitPrice());
                 })
                 .collect(Collectors.toList());
+
+        log.info("查詢訂單明細成功，memberId={}, orderId={}, 項目數量={}", member.getId(), orderId, details.size());
+        return details;
     }
 }

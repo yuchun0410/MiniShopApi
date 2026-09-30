@@ -10,6 +10,8 @@ import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sf.jasperreports.pdf.JRPdfExporter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +24,11 @@ import java.util.Map;
 @Service
 public class JasperReportService {
 
+    private static final Logger log = LoggerFactory.getLogger(JasperReportService.class);
+
     public byte[] exportProductSalesReportPdf(List<?> data) throws JRException, java.io.IOException {
+        log.info("開始產生銷售報表PDF，資料筆數={}", data.size());
+
         // 1. 從 classpath 讀取 .jrxml 樣板
         InputStream jrxmlStream = new ClassPathResource("reports/product_sales_report.jrxml").getInputStream();
 
@@ -45,6 +51,8 @@ public class JasperReportService {
         exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(outputStream));
         exporter.exportReport();
 
-        return outputStream.toByteArray();
+        byte[] pdfBytes = outputStream.toByteArray();
+        log.info("銷售報表PDF產生完成，檔案大小={} bytes", pdfBytes.length);
+        return pdfBytes;
     }
 }

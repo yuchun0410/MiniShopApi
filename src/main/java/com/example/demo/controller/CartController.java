@@ -1,6 +1,8 @@
 package com.example.demo.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +17,8 @@ import java.util.List;
 @RequestMapping("/api/cart")
 public class CartController {
 
+    private static final Logger log = LoggerFactory.getLogger(CartController.class);
+
     private final CartService cartService;
     private final MemberService memberService;
 
@@ -26,6 +30,7 @@ public class CartController {
     private Member getCurrentMember(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
+            log.warn("未登入狀態嘗試存取購物車相關 API，uri={}", request.getRequestURI());
             throw new IllegalStateException("尚未登入");
         }
         return memberService.findById(memberId);

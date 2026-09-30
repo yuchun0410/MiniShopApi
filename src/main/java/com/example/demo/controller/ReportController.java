@@ -8,6 +8,8 @@ import com.example.demo.service.MemberService;
 import com.example.demo.service.ReportService;
 import com.example.demo.service.impl.JasperReportService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
+
+    private static final Logger log = LoggerFactory.getLogger(ReportController.class);
 
     private final ReportService reportService;
     private final MemberService memberService;
@@ -50,10 +54,12 @@ public class ReportController {
     private void requireAdmin(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
+            log.warn("未登入狀態嘗試存取報表 API，uri={}", request.getRequestURI());
             throw new IllegalStateException("尚未登入");
         }
         Member current = memberService.findById(memberId);
         if (current.getRole() != Role.ADMIN) {
+            log.warn("非管理員嘗試存取報表 API，memberId={}, uri={}", memberId, request.getRequestURI());
             throw new AccessDeniedException("需要管理員權限");
         }
     }

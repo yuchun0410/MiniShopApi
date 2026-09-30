@@ -9,6 +9,8 @@ import com.example.demo.service.MemberService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/members")
 public class MemberController {
+
+    private static final Logger log = LoggerFactory.getLogger(MemberController.class);
 
     private final MemberService memberService;
     private final JwtUtil jwtUtil;
@@ -37,6 +41,7 @@ public class MemberController {
     @PostMapping("/register")
     public ResponseEntity<Member> register(@RequestBody RegisterRequest req) {
         Member member = memberService.register(req.username, req.password, req.email, req.name);
+        log.info("會員註冊成功，memberId={}, username={}", member.getId(), member.getUsername());
         return ResponseEntity.ok(member);
     }
 
@@ -48,6 +53,7 @@ public class MemberController {
         String accessToken = jwtUtil.generateAccessToken(member);
         String refreshToken = jwtUtil.generateRefreshToken(member);
         refreshTokenStore.save(member.getId(), refreshToken, refreshTokenExpirationMs);
+        log.info("會員登入成功，memberId={}, username={}", member.getId(), member.getUsername());
         return ResponseEntity.ok(new LoginResponse(member, accessToken, refreshToken));
     }
 
@@ -60,8 +66,10 @@ public class MemberController {
                 Claims claims = jwtUtil.parseClaims(req.refreshToken);
                 Long memberId = jwtUtil.extractMemberId(claims);
                 refreshTokenStore.delete(memberId);
+                log.info("會員登出成功，memberId={}", memberId);
             } catch (JwtException | IllegalArgumentException e) {
                 // token 本來就無效或已過期，視同登出成功，不用特別處理
+                log.warn("登出時的 Refresh Token 已經無效或過期，視同登出成功");
             }
         }
         return ResponseEntity.ok().build();
@@ -74,17 +82,21 @@ public class MemberController {
         try {
             claims = jwtUtil.parseClaims(req.refreshToken);
         } catch (JwtException | IllegalArgumentException e) {
+            log.warn("換發 Access Token 失敗，Refresh Token 無效或已過期");
             throw new IllegalStateException("Refresh Token 無效或已過期，請重新登入");
         }
         if (!jwtUtil.isRefreshToken(claims)) {
+            log.warn("換發 Access Token 失敗，傳入的不是 Refresh Token");
             throw new IllegalStateException("這不是 Refresh Token");
         }
         Long memberId = jwtUtil.extractMemberId(claims);
         if (!refreshTokenStore.isValid(memberId, req.refreshToken)) {
+            log.warn("換發 Access Token 失敗，Refresh Token 已被登出或不存在，memberId={}", memberId);
             throw new IllegalStateException("Refresh Token 已被登出或不存在，請重新登入");
         }
         Member member = memberService.findById(memberId);
         String newAccessToken = jwtUtil.generateAccessToken(member);
+        log.info("換發 Access Token 成功，memberId={}", memberId);
         return ResponseEntity.ok(new RefreshResponse(newAccessToken));
     }
 
@@ -114,7 +126,9 @@ public class MemberController {
     @PutMapping("/{id}/role")
     public ResponseEntity<Member> updateRole(@PathVariable Long id, @RequestParam Role role, HttpServletRequest request) {
         requireAdmin(request);
-        return ResponseEntity.ok(memberService.updateRole(id, role));
+        Member updated = memberService.updateRole(id, role);
+        log.info("修改會員角色成功，memberId={}, newRole={}", id, role);
+        return ResponseEntity.ok(updated);
     }
 
     // 刪除會員：只有管理員能操作
@@ -122,6 +136,7 @@ public class MemberController {
     public ResponseEntity<Void> deleteMember(@PathVariable Long id, HttpServletRequest request) {
         requireAdmin(request);
         memberService.deleteMember(id);
+        log.info("刪除會員成功，memberId={}", id);
         return ResponseEntity.ok().build();
     }
 
@@ -129,10 +144,12 @@ public class MemberController {
     private void requireAdmin(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
+            log.warn("未登入狀態嘗試存取會員管理 API，uri={}", request.getRequestURI());
             throw new IllegalStateException("尚未登入");
         }
         Member current = memberService.findById(memberId);
         if (current.getRole() != com.example.demo.model.Role.ADMIN) {
+            log.warn("非管理員嘗試存取會員管理 API，memberId={}, uri={}", memberId, request.getRequestURI());
             throw new com.example.demo.exception.AccessDeniedException("需要管理員權限");
         }
     }

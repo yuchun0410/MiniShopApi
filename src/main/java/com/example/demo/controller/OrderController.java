@@ -6,6 +6,8 @@ import com.example.demo.model.OrderItemDetail;
 import com.example.demo.service.MemberService;
 import com.example.demo.service.OrderService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     private final OrderService orderService;
     private final MemberService memberService;
@@ -26,6 +30,7 @@ public class OrderController {
     private Member getCurrentMember(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
+            log.warn("未登入狀態嘗試存取訂單相關 API，uri={}", request.getRequestURI());
             throw new IllegalStateException("尚未登入");
         }
         return memberService.findById(memberId);

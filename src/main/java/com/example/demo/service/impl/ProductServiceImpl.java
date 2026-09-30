@@ -6,6 +6,8 @@ import com.example.demo.model.PageResponse;
 import com.example.demo.model.Product;
 import com.example.demo.model.ProductAttachment;
 import com.example.demo.service.ProductService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import java.util.List;
 
 @Service
 public class ProductServiceImpl implements ProductService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductServiceImpl.class);
 
     private final ProductDao productDao;
     private final ProductAttachmentDao productAttachmentDao;
@@ -31,13 +35,18 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<Product> findAll() {
-        return productDao.findAll();
+        List<Product> products = productDao.findAll();
+        log.info("查詢全部商品，數量={}", products.size());
+        return products;
     }
 
     @Override
     public Product findById(Long id) {
         return productDao.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("找不到此商品"));
+                .orElseThrow(() -> {
+                    log.warn("查詢商品失敗，找不到此商品，productId={}", id);
+                    return new IllegalArgumentException("找不到此商品");
+                });
     }
 
     @Override
@@ -45,6 +54,7 @@ public class ProductServiceImpl implements ProductService {
         List<Product> content = productDao.findPage(page, size, keyword);
         long totalElements = productDao.count(keyword);
         int totalPages = (int) Math.ceil((double) totalElements / size);
+        log.info("分頁查詢商品，page={}, size={}, keyword={}, 總筆數={}", page, size, keyword, totalElements);
         return new PageResponse<>(content, page, size, totalElements, totalPages);
     }
 
@@ -76,10 +86,12 @@ public class ProductServiceImpl implements ProductService {
             } catch (IOException e) {
                 // file.getBytes() 讀取上傳內容失敗（例如連線中斷），丟成 RuntimeException
                 // 讓 @Transactional 依然能正確判斷要 rollback
+                log.warn("新增商品的附件讀取失敗，productId={}, fileName={}", savedProduct.getId(), file.getOriginalFilename(), e);
                 throw new IllegalStateException("讀取上傳檔案失敗: " + file.getOriginalFilename(), e);
             }
         }
 
+        log.info("新增商品成功，productId={}, 附有附件={}", savedProduct.getId(), hasFile);
         return savedProduct;
     }
 
@@ -94,6 +106,7 @@ public class ProductServiceImpl implements ProductService {
         findById(id); // 商品不存在的話這裡就會丟 IllegalArgumentException("找不到此商品")
         productAttachmentDao.deleteByProductId(id);
         productDao.deleteById(id);
+        log.info("刪除商品成功，productId={}", id);
     }
 
     // 取得商品的附件（含檔案內容），找不到就丟例外（給 Controller 的附件讀取端點用）
@@ -104,6 +117,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductAttachment getAttachment(Long productId) {
         List<ProductAttachment> attachments = productAttachmentDao.findByProductId(productId);
         if (attachments.isEmpty()) {
+            log.warn("查詢商品附件失敗，此商品沒有附件，productId={}", productId);
             throw new IllegalArgumentException("此商品沒有附件");
         }
         return attachments.get(0);
@@ -114,6 +128,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductAttachment updateAttachment(Long productId, MultipartFile file) {
         findById(productId); // 商品不存在的話這裡就會丟例外，不會存出一筆孤兒附件
         if (file == null || file.isEmpty()) {
+            log.warn("更新商品附件失敗，未選擇檔案，productId={}", productId);
             throw new IllegalArgumentException("請選擇要上傳的檔案");
         }
         productAttachmentDao.deleteByProductId(productId); // 一個商品只留一筆附件，舊的先清掉再存新的
@@ -124,8 +139,11 @@ public class ProductServiceImpl implements ProductService {
             attachment.setFileData(file.getBytes());
             attachment.setFileSize(file.getSize());
             attachment.setContentType(file.getContentType());
-            return productAttachmentDao.save(attachment);
+            ProductAttachment saved = productAttachmentDao.save(attachment);
+            log.info("更新商品附件成功，productId={}, fileName={}", productId, file.getOriginalFilename());
+            return saved;
         } catch (IOException e) {
+            log.warn("更新商品附件讀取失敗，productId={}, fileName={}", productId, file.getOriginalFilename(), e);
             throw new IllegalStateException("讀取上傳檔案失敗: " + file.getOriginalFilename(), e);
         }
     }
