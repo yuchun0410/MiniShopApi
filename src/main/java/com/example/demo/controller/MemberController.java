@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Member;
+import com.example.demo.model.MemberResponse;
 import com.example.demo.model.PageResponse;
 import com.example.demo.model.Role;
 import com.example.demo.security.JwtUtil;
@@ -39,10 +40,10 @@ public class MemberController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Member> register(@RequestBody RegisterRequest req) {
+    public ResponseEntity<MemberResponse> register(@RequestBody RegisterRequest req) {
         Member member = memberService.register(req.username, req.password, req.email, req.name);
         log.info("會員註冊成功，memberId={}, username={}", member.getId(), member.getUsername());
-        return ResponseEntity.ok(member);
+        return ResponseEntity.ok(MemberResponse.from(member));
     }
 
     // 登入：驗證帳密後簽發 Access Token（短效期）與 Refresh Token（長效期）
@@ -54,7 +55,7 @@ public class MemberController {
         String refreshToken = jwtUtil.generateRefreshToken(member);
         refreshTokenStore.save(member.getId(), refreshToken, refreshTokenExpirationMs);
         log.info("會員登入成功，memberId={}, username={}", member.getId(), member.getUsername());
-        return ResponseEntity.ok(new LoginResponse(member, accessToken, refreshToken));
+        return ResponseEntity.ok(new LoginResponse(MemberResponse.from(member), accessToken, refreshToken));
     }
 
     // 登出：把 Refresh Token 從 RefreshTokenStore 刪掉，之後就不能再拿它換新的 Access Token
@@ -101,34 +102,39 @@ public class MemberController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<Member> me(HttpServletRequest request) {
+    public ResponseEntity<MemberResponse> me(HttpServletRequest request) {
         Long memberId = (Long) request.getAttribute("memberId");
         if (memberId == null) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(memberService.findById(memberId));
+        return ResponseEntity.ok(MemberResponse.from(memberService.findById(memberId)));
     }
 
     // 會員列表：只有管理員能看，支援換頁 + 查詢（比對 username 或 name）
     // GET /api/members?page=1&size=10&keyword=xxx
     @GetMapping
-    public ResponseEntity<PageResponse<Member>> listAll(
+    public ResponseEntity<PageResponse<MemberResponse>> listAll(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
             HttpServletRequest request) {
         requireAdmin(request);
-        return ResponseEntity.ok(memberService.findPage(page, size, keyword));
+        PageResponse<Member> result = memberService.findPage(page, size, keyword);
+        // 每一筆 Member 轉成 MemberResponse 再回傳，分頁資訊照舊
+        PageResponse<MemberResponse> response = new PageResponse<>(
+                result.getContent().stream().map(MemberResponse::from).toList(),
+                result.getPage(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+        return ResponseEntity.ok(response);
     }
 
     // 修改會員角色：只有管理員能操作
     // 呼叫方式：PUT /api/members/3/role?role=ADMIN
     @PutMapping("/{id}/role")
-    public ResponseEntity<Member> updateRole(@PathVariable Long id, @RequestParam Role role, HttpServletRequest request) {
+    public ResponseEntity<MemberResponse> updateRole(@PathVariable Long id, @RequestParam Role role, HttpServletRequest request) {
         requireAdmin(request);
         Member updated = memberService.updateRole(id, role);
         log.info("修改會員角色成功，memberId={}, newRole={}", id, role);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(MemberResponse.from(updated));
     }
 
     // 刪除會員：只有管理員能操作
@@ -167,11 +173,11 @@ public class MemberController {
     }
 
     public static class LoginResponse {
-        public Member member;
+        public MemberResponse member;
         public String accessToken;
         public String refreshToken;
 
-        public LoginResponse(Member member, String accessToken, String refreshToken) {
+        public LoginResponse(MemberResponse member, String accessToken, String refreshToken) {
             this.member = member;
             this.accessToken = accessToken;
             this.refreshToken = refreshToken;
