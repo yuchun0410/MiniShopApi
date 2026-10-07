@@ -65,13 +65,13 @@ public class JwtUtil {
                 .claim("type", type)
                 .issuedAt(now)
                 .expiration(expiry)
-                .signWith(privateKey, Jwts.SIG.RS256)
+                .signWith(privateKey, Jwts.SIG.RS256)//RSA私鑰
                 .compact();
     }
 
     public Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(publicKey)
+                .verifyWith(publicKey)//公鑰驗證簽章
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

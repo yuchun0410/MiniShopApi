@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.model.Order;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +73,7 @@ public class CartController {
     @PostMapping("/checkout")
     public ResponseEntity<com.example.demo.model.Order> checkout(HttpServletRequest request) {
         Member member = getCurrentMember(request);
-        com.example.demo.model.Order order = cartService.checkout(member);
+        Order order = cartService.checkout(member);
         return ResponseEntity.ok(order);
     }
 }
