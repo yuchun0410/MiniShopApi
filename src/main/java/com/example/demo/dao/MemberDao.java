@@ -9,7 +9,6 @@ public interface MemberDao {
     Optional<Member> findById(Long id);
     Optional<Member> findByUsername(String username);
     boolean existsByUsername(String username);
-    List<Member> findAll();
     void deleteById(Long id);
 
     // page 從 1 開始算；keyword 可為 null 或空字串，代表不篩選（比對 username 或 name）

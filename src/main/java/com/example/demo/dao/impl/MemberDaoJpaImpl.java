@@ -44,11 +44,6 @@ public class MemberDaoJpaImpl implements MemberDao {
     }
 
     @Override
-    public List<Member> findAll() {
-        return memberRepository.findAll();
-    }
-
-    @Override
     public void deleteById(Long id) {
         memberRepository.deleteById(id);
     }

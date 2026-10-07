@@ -10,12 +10,18 @@
         <result property="contentType" column="content_type"/>
         <result property="uploadedAt" column="uploaded_at"/>
     </resultMap>
+
+    <!-- 明確列出欄位，不用萬用字元查全部欄位：欄位清單集中在這裡，日後資料表加欄位也不會悄悄多撈資料 -->
+    <sql id="Base_Column_List">
+        id, product_id, original_file_name, file_data, file_size, content_type, uploaded_at
+    </sql>
+
     <insert id="insert" parameterType="com.example.demo.model.ProductAttachment" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO product_attachment (product_id, original_file_name, file_data, file_size, content_type, uploaded_at)
         VALUES (#{productId}, #{originalFileName}, #{fileData, jdbcType=BLOB}, #{fileSize}, #{contentType}, #{uploadedAt})
     </insert>
     <select id="findByProductId" resultMap="ProductAttachmentResultMap">
-        SELECT * FROM product_attachment WHERE product_id = #{productId}
+        SELECT <include refid="Base_Column_List"/> FROM product_attachment WHERE product_id = #{productId}
     </select>
     <delete id="deleteByProductId" parameterType="long">
         DELETE FROM product_attachment WHERE product_id = #{productId}

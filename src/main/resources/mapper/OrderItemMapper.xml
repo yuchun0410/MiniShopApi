@@ -10,13 +10,19 @@
         <result property="unitPrice" column="unit_price"/>
     </resultMap>
 
+    <!-- 明確列出欄位，不用萬用字元查全部欄位：欄位清單集中在這裡，日後資料表加欄位也不會悄悄多撈資料 -->
+    <sql id="Base_Column_List">
+        id, order_id, product_id, quantity, unit_price
+    </sql>
+
+
     <insert id="insert" parameterType="com.example.demo.model.OrderItem" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO order_item (order_id, product_id, quantity, unit_price)
         VALUES (#{orderId}, #{productId}, #{quantity}, #{unitPrice})
     </insert>
 
     <select id="findByOrderId" parameterType="long" resultMap="OrderItemResultMap">
-        SELECT * FROM order_item WHERE order_id = #{orderId}
+        SELECT <include refid="Base_Column_List"/> FROM order_item WHERE order_id = #{orderId}
     </select>
 
     <!-- ProductSalesReport 沒有 setter，只有建構子，所以這裡用 constructor 對應，不能用一般的 resultType -->

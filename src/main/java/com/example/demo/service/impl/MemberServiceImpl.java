@@ -68,11 +68,6 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    public List<Member> findAll() {
-        return memberDao.findAll();
-    }
-
-    @Override
     public PageResponse<Member> findPage(int page, int size, String keyword) {
         List<Member> content = memberDao.findPage(page, size, keyword);
         long totalElements = memberDao.count(keyword);

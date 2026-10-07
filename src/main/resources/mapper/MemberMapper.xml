@@ -12,6 +12,12 @@
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
+    <!-- 明確列出欄位，不用萬用字元查全部欄位：欄位清單集中在這裡，日後資料表加欄位也不會悄悄多撈資料 -->
+    <sql id="Base_Column_List">
+        id, username, password, email, name, role, created_at
+    </sql>
+
+
     <insert id="insert" parameterType="com.example.demo.model.Member" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO member (username, password, email, name, role, created_at)
         VALUES (#{username}, #{password}, #{email}, #{name}, #{role}, #{createdAt})
@@ -28,19 +34,15 @@
     </update>
 
     <select id="findById" parameterType="long" resultMap="MemberResultMap">
-        SELECT * FROM member WHERE id = #{id}
+        SELECT <include refid="Base_Column_List"/> FROM member WHERE id = #{id}
     </select>
 
     <select id="findByUsername" parameterType="string" resultMap="MemberResultMap">
-        SELECT * FROM member WHERE username = #{username}
+        SELECT <include refid="Base_Column_List"/> FROM member WHERE username = #{username}
     </select>
 
     <select id="countByUsername" parameterType="string" resultType="int">
-        SELECT COUNT(*) FROM member WHERE username = #{username}
-    </select>
-
-    <select id="findAll" resultMap="MemberResultMap">
-        SELECT * FROM member
+        SELECT COUNT(1) FROM member WHERE username = #{username}
     </select>
 
     <delete id="deleteById" parameterType="long">
@@ -49,7 +51,7 @@
 
     <!-- 換頁 + 查詢用：keyword 有值時比對 username 或 name，沒有值就撈全部 -->
     <select id="findPage" resultMap="MemberResultMap">
-        SELECT * FROM member
+        SELECT <include refid="Base_Column_List"/> FROM member
         <if test="keyword != null and keyword != ''">
             WHERE username LIKE CONCAT('%', #{keyword}, '%')
                OR name LIKE CONCAT('%', #{keyword}, '%')
@@ -59,7 +61,7 @@
 
     <!-- 換頁 + 查詢用：算符合條件的總筆數，前端要靠這個算總頁數 -->
     <select id="count" resultType="long">
-        SELECT COUNT(*) FROM member
+        SELECT COUNT(1) FROM member
         <if test="keyword != null and keyword != ''">
             WHERE username LIKE CONCAT('%', #{keyword}, '%')
                OR name LIKE CONCAT('%', #{keyword}, '%')

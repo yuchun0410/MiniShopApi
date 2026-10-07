@@ -134,9 +134,13 @@ public class CartServiceImpl implements CartService {
             orderItemDao.save(orderItem);
 
             // 結帳成功才真的把庫存扣掉（加入購物車的階段不扣，只有真的結帳完成才算數）
+            // 用資料庫原子扣庫存：stock >= 數量才會扣，扣不到（回傳 false）代表剛好被別人買走，丟例外讓整筆交易 rollback
             Product product = item.getProduct();
-            product.setStock(product.getStock() - item.getQuantity());
-            productDao.save(product);
+            if (!productDao.decreaseStock(product.getId(), item.getQuantity())) {
+                log.warn("結帳失敗，扣庫存時庫存不足，memberId={}, productId={}, 需要數量={}",
+                        member.getId(), product.getId(), item.getQuantity());
+                throw new IllegalStateException("庫存不足：" + product.getName());
+            }
         }
 
         cartItemDao.deleteByMember(member);

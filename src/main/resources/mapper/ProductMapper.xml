@@ -10,27 +10,35 @@
 
     </resultMap>
 
+    <!-- 明確列出欄位，不用萬用字元查全部欄位：欄位清單集中在這裡，日後資料表加欄位也不會悄悄多撈資料 -->
+    <sql id="Base_Column_List">
+        id, name, price, stock
+    </sql>
+
+
   
     <insert id="insert" parameterType="com.example.demo.model.Product" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO product (name, price, stock)
         VALUES (#{name}, #{price}, #{stock})
     </insert>
 
+    <!-- 原子扣庫存：檢查與扣除合成一條 SQL，stock >= #{quantity} 不成立就更新 0 筆（代表庫存不足），避免超賣 -->
+    <update id="decreaseStock">
+        UPDATE product SET stock = stock - #{quantity}
+        WHERE id = #{id} AND stock &gt;= #{quantity}
+    </update>
+
     <delete id="deleteById" parameterType="long">
         DELETE FROM product WHERE id = #{id}
     </delete>
 
-    <select id="findAll" resultMap="ProductResultMap">
-        SELECT * FROM product
-    </select>
-
     <select id="findById" parameterType="long" resultMap="ProductResultMap">
-        SELECT * FROM product WHERE id = #{id}
+        SELECT <include refid="Base_Column_List"/> FROM product WHERE id = #{id}
     </select>
 
     <!-- 換頁 + 查詢用：keyword 有值時用 LIKE 篩選商品名稱，沒有值就撈全部 -->
     <select id="findPage" resultMap="ProductResultMap">
-        SELECT * FROM product
+        SELECT <include refid="Base_Column_List"/> FROM product
         <if test="keyword != null and keyword != ''">
             WHERE name LIKE CONCAT('%', #{keyword}, '%')
         </if>
@@ -39,7 +47,7 @@
 
     <!-- 換頁 + 查詢用：算符合條件的總筆數，前端要靠這個算總頁數 -->
     <select id="count" resultType="long">
-        SELECT COUNT(*) FROM product
+        SELECT COUNT(1) FROM product
         <if test="keyword != null and keyword != ''">
             WHERE name LIKE CONCAT('%', #{keyword}, '%')
         </if>

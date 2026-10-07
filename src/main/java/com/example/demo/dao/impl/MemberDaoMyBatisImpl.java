@@ -45,11 +45,6 @@ public class MemberDaoMyBatisImpl implements MemberDao {
     }
 
     @Override
-    public List<Member> findAll() {
-        return memberMapper.findAll();
-    }
-
-    @Override
     public void deleteById(Long id) {
         memberMapper.deleteById(id);
     }

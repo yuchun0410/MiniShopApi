@@ -10,7 +10,6 @@ public interface CartItemDao {
     List<CartItem> findByMember(Member member);
     Optional<CartItem> findByMemberAndProduct(Member member, Product product);
     CartItem save(CartItem item);
-    Optional<CartItem> findById(Long id);
     void deleteById(Long id);
     void deleteByMember(Member member);
 }

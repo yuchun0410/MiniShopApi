@@ -40,11 +40,6 @@ public class CartItemDaoMyBatisImpl implements CartItemDao {
     }
 
     @Override
-    public Optional<CartItem> findById(Long id) {
-        return Optional.ofNullable(cartItemMapper.findById(id));
-    }
-
-    @Override
     public void deleteById(Long id) {
         cartItemMapper.deleteById(id);
     }

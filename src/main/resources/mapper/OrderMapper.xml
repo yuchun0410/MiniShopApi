@@ -9,17 +9,23 @@
         <result property="totalAmount" column="total_amount"/>
     </resultMap>
 
+    <!-- 明確列出欄位，不用萬用字元查全部欄位：欄位清單集中在這裡，日後資料表加欄位也不會悄悄多撈資料 -->
+    <sql id="Base_Column_List">
+        id, member_id, order_date, total_amount
+    </sql>
+
+
     <insert id="insert" parameterType="com.example.demo.model.Order" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO orders (member_id, order_date, total_amount)
         VALUES (#{memberId}, #{orderDate}, #{totalAmount})
     </insert>
 
     <select id="findById" parameterType="long" resultMap="OrderResultMap">
-        SELECT * FROM orders WHERE id = #{id}
+        SELECT <include refid="Base_Column_List"/> FROM orders WHERE id = #{id}
     </select>
 
     <select id="findByMemberId" parameterType="long" resultMap="OrderResultMap">
-        SELECT * FROM orders WHERE member_id = #{memberId}
+        SELECT <include refid="Base_Column_List"/> FROM orders WHERE member_id = #{memberId}
     </select>
 
 </mapper>

@@ -34,13 +34,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<Product> findAll() {
-        List<Product> products = productDao.findAll();
-        log.info("查詢全部商品，數量={}", products.size());
-        return products;
-    }
-
-    @Override
     public Product findById(Long id) {
         return productDao.findById(id)
                 .orElseThrow(() -> {

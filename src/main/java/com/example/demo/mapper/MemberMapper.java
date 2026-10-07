@@ -12,7 +12,6 @@ public interface MemberMapper {
 	Member findById(Long id);
 	Member findByUsername(String username);
 	int countByUsername(String username);
-	List<Member> findAll();
 	int deleteById(Long id);
 
 	List<Member> findPage(@Param("offset") int offset, @Param("limit") int limit, @Param("keyword") String keyword);

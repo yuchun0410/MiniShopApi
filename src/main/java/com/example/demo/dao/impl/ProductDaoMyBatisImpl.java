@@ -29,13 +29,13 @@ public class ProductDaoMyBatisImpl implements ProductDao {
     }
 
     @Override
-    public List<Product> findAll() {
-        return productMapper.findAll();
+    public Optional<Product> findById(Long id) {
+        return Optional.ofNullable(productMapper.findById(id));
     }
 
     @Override
-    public Optional<Product> findById(Long id) {
-        return Optional.ofNullable(productMapper.findById(id));
+    public boolean decreaseStock(Long id, int quantity) {
+        return productMapper.decreaseStock(id, quantity) > 0;
     }
 
     @Override

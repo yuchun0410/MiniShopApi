@@ -37,11 +37,6 @@ public class CartItemDaoJpaImpl implements CartItemDao {
     }
 
     @Override
-    public Optional<CartItem> findById(Long id) {
-        return cartItemRepository.findById(id);
-    }
-
-    @Override
     public void deleteById(Long id) {
         cartItemRepository.deleteById(id);
     }

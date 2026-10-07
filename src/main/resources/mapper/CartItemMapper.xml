@@ -14,11 +14,6 @@
         </association>
     </resultMap>
 
-    <select id="findById" parameterType="long" resultMap="CartItemResultMap">
-     SELECT ci.id,ci.quantity,p.id AS p_id,p.name AS p_name,p.price AS p_price,p.stock AS p_stock
-     FROM cart_item ci JOIN product p ON ci.product_id=p.id 
-     WHERE ci.id = #{id}
-    </select>
     
     <select id="findByMemberId" parameterType="long" resultMap="CartItemResultMap">
      SELECT ci.id,ci.quantity,p.id AS p_id,p.name AS p_name,p.price AS p_price,p.stock AS p_stock

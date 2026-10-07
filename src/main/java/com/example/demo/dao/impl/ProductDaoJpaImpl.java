@@ -30,13 +30,13 @@ public class ProductDaoJpaImpl implements ProductDao {
     }
 
     @Override
-    public List<Product> findAll() {
-        return productRepository.findAll();
+    public Optional<Product> findById(Long id) {
+        return productRepository.findById(id);
     }
 
     @Override
-    public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
+    public boolean decreaseStock(Long id, int quantity) {
+        return productRepository.decreaseStock(id, quantity) > 0;
     }
 
     @Override

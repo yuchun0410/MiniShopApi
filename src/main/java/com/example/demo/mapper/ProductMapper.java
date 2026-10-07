@@ -9,8 +9,8 @@ import com.example.demo.model.Product;
 public interface ProductMapper {
 	int insert(Product product);
 	int deleteById(Long id);
-	List<Product> findAll();
 	Product findById(Long id);
+	int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
 
 	List<Product> findPage(@Param("offset") int offset, @Param("limit") int limit, @Param("keyword") String keyword);
 	long count(@Param("keyword") String keyword);
