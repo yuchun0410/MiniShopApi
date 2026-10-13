@@ -14,6 +14,7 @@
 | 資料庫 | MySQL（本機開發），並已預備 PostgreSQL 驅動供雲端部署使用 |
 | 報表 | JasperReports 7.0.1（含中文 PDF 匯出） |
 | 版本控制 | Git |
+| 測試 / CI | JUnit（Jupiter）、Mockito（單元測試）、GitHub Actions（push／PR 時自動編譯並執行單元測試） |
 | 其他 | Lombok、Spring Boot DevTools |
 
 ## 系統架構
@@ -162,9 +163,36 @@ Spring Boot DevTools 監看的是 `target/classes`，如果直接在 IDE 外部�
 4. 執行 `mvn spring-boot:run`（或在 IDE 中啟動 `MiniShopApiApplication`）
 5. 首次啟動會自動建立測試商品資料與一組測試管理員帳號：`admin` / `admin123`
 
+## 測試
+
+### 單元測試
+
+單元測試用 Mockito 把 Dao 換成假物件，只驗證 Service／工具類別自己的邏輯：不連資料庫、不啟動 Spring 容器，執行時間是毫秒等級。
+
+| 測試類別 | 驗證內容 |
+| --- | --- |
+| `CartServiceImplTest` | 購物車修改／刪除的擁有者檢查（防 IDOR）；結帳的各種情境：購物車為空、庫存足夠（訂單金額正確、扣庫存、清空購物車）、預檢時庫存不足、預檢通過但原子扣庫存失敗（模擬在檢查與扣除之間被別人買走） |
+| `OrderServiceImplTest` | 只能查看自己的訂單，查看他人訂單會被擋下且不會查出明細（防 IDOR）；訂單不存在；商品已被刪除時的備用名稱 |
+| `JwtUtilTest` | Access／Refresh Token 簽發與解析（memberId、role、type）；過期 token、他人私鑰簽發的 token、竄改 payload（想把 role 改成 ADMIN）都會被拒絕。測試內即時產生 RSA 金鑰，不需要環境變數 |
+
+執行方式：
+
+```bash
+./mvnw test -Dtest=CartServiceImplTest,OrderServiceImplTest,JwtUtilTest
+```
+
+### 持續整合（CI）
+
+`.github/workflows/ci.yml` 會在 push 到 `main` 或對 `main` 開 Pull Request 時，用 JDK 21 編譯專案並執行上述三個單元測試。這些測試不需要資料庫或 Redis，所以可以直接在 CI 內執行。
+
+### 目前的限制
+
+- `MemberMapperTest`（在 `MiniShopApiApplicationTests.java` 內）是 `@SpringBootTest` 整合測試，需要真的 MySQL、Redis，以及 `DB_PASSWORD`、`JWT_PRIVATE_KEY`、`JWT_PUBLIC_KEY` 等環境變數，所以刻意沒有接進 CI。
+- `@Transactional` 的 rollback 本身（例如訂單已寫入、後續扣庫存失敗時整筆撤銷）需要連真的資料庫才驗證得到。單元測試能驗證的是「該丟例外時有丟、不該做的事沒有做」，而丟出例外正是觸發 rollback 的條件。
+
 ## 後續規劃
 
-- 補齊自動化測試（尤其是 `@Transactional` rollback 情境，適合用 Mockito 驗證交易失敗時的補償邏輯是否有正確執行）
+- 補整合測試：在 CI 用 service container 起 MySQL／Redis，把 `MemberMapperTest` 與 `@Transactional` rollback 情境接進來；另外會員、商品等其他 Service，以及 `JwtAuthenticationFilter`、Controller 尚未有測試
 - `.jrxml` 內字型檔路徑目前為本機絕對路徑，尚未處理跨環境部署的可攜性
 - 清理專案中殘留但未使用的 JPA 標註
 - 實際完成雲端部署（Render + 資料庫 + Redis + Vercel），並驗證正式環境下 JWT 驗證與檔案上傳功能是否正常運作
