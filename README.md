@@ -138,21 +138,29 @@ Spring Boot DevTools 監看的是 `target/classes`，如果直接在 IDE 外部�
 
 ## 部署準備
 
-目前資料庫連線、CORS 允許來源，都已經改成用環境變數帶入（見 `application.properties`），本機開發沒有設定這些環境變數時會自動 fallback 成本機 MySQL、`http://localhost:5173` 等預設值，行為與改動前一致。規劃中的部署方式：
+目前資料庫連線、CORS 允許來源，都已經改成用環境變數帶入（見 `application.properties`），本機開發沒有設定這些環境變數時會自動 fallback 成本機 MySQL、`http://localhost:5173` 等預設值，行為與改動前一致（JWT 金鑰例外：沒有預設值，本機也必須先設定 `JWT_PRIVATE_KEY`／`JWT_PUBLIC_KEY`，否則啟動時會失敗，產生方式見「快速開始」）。規劃中的部署方式：
 
 - 後端：Render（免費方案）
 - 資料庫：Render 目前只有原生 PostgreSQL（無原生 MySQL），計畫改用 PostgreSQL 驅動或改接外部免費 MySQL（例如 Aiven）
 - Redis：Render 的 Key Value 服務（Redis 協定相容），免費方案無持久化，服務重啟會清空 Refresh Token
 - 前端：Vercel
 
-部署時需要在 Render 設定的環境變數：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`DB_DRIVER`、`CORS_ALLOWED_ORIGIN`（填實際前端網址）、`JWT_PRIVATE_KEY`／`JWT_PUBLIC_KEY`（正式環境務必重新產生一組，不能沿用本機開發用的預設值）、`REDIS_HOST`／`REDIS_PORT`。商品附件內容已改存進資料庫（BLOB），不再依賴網頁服務本機硬碟，Render 免費方案硬碟非持久化、服務重啟或重新部署會清空本機檔案系統這個問題，對附件功能已經不受影響；仍要留意的是 MySQL 的 `max_allowed_packet` 設定，上傳較大的檔案時可能會在資料庫這層被擋下來，需要視實際部署環境調整。
+部署時需要在 Render 設定的環境變數：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`DB_DRIVER`、`CORS_ALLOWED_ORIGIN`（填實際前端網址）、`JWT_PRIVATE_KEY`／`JWT_PUBLIC_KEY`（沒有預設值，必須自行產生一組 RSA 金鑰對；private key 絕對不能提交進版本控制，也不要與本機開發共用同一組）、`REDIS_HOST`／`REDIS_PORT`。商品附件內容已改存進資料庫（BLOB），不再依賴網頁服務本機硬碟，Render 免費方案硬碟非持久化、服務重啟或重新部署會清空本機檔案系統這個問題，對附件功能已經不受影響；仍要留意的是 MySQL 的 `max_allowed_packet` 設定，上傳較大的檔案時可能會在資料庫這層被擋下來，需要視實際部署環境調整。
 
 ## 快速開始
 
 1. 建立 MySQL 資料庫 `mini_shop`，並確認本機有安裝並啟動 Redis（`redis-cli ping` 應回傳 `PONG`）
 2. 依實際環境調整資料庫帳密（可直接改 `application.properties` 預設值，或改用環境變數 `DB_URL`／`DB_USERNAME`／`DB_PASSWORD`）
-3. 執行 `mvn spring-boot:run`（或在 IDE 中啟動 `MiniShopApiApplication`）
-4. 首次啟動會自動建立測試商品資料與一組測試管理員帳號：`admin` / `admin123`
+3. 產生一組 JWT 用的 RSA 金鑰對（沒有預設值，沒設定會啟動失敗），設成環境變數 `JWT_PRIVATE_KEY`／`JWT_PUBLIC_KEY`；金鑰檔與 `.env` 都不要提交進版本控制：
+   ```bash
+   openssl genrsa -out private.pem 2048
+   # JWT_PRIVATE_KEY：PKCS#8 DER 格式，轉成單行 Base64
+   openssl pkcs8 -topk8 -inform PEM -outform DER -in private.pem -nocrypt | base64 | tr -d '\n'
+   # JWT_PUBLIC_KEY：X.509 DER 格式，轉成單行 Base64
+   openssl rsa -in private.pem -pubout -outform DER | base64 | tr -d '\n'
+   ```
+4. 執行 `mvn spring-boot:run`（或在 IDE 中啟動 `MiniShopApiApplication`）
+5. 首次啟動會自動建立測試商品資料與一組測試管理員帳號：`admin` / `admin123`
 
 ## 後續規劃
 

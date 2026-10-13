@@ -104,9 +104,10 @@ public class CartServiceImpl implements CartService {
             throw new IllegalStateException("購物車是空的，無法結帳");
         }
 
-        // 結帳前先檢查每一項的庫存夠不夠，不夠就直接擋下來、不建立訂單。
-        // 註：這裡只是「檢查完再扣」的簡單版本，沒有處理「兩個人同時搶最後一件庫存」的併發情境
-        // ——真的要做到嚴謹的話，需要在 Product 上加樂觀鎖（@Version）或悲觀鎖（SELECT ... FOR UPDATE）。
+        // 結帳前先檢查每一項的庫存夠不夠，不夠就直接擋下來、不建立訂單（提早失敗，給使用者明確的錯誤訊息）。
+        // 注意：這只是「快速預檢」，不能單靠它防超賣——兩個人同時搶最後一件時，兩邊的預檢都會通過。
+        // 真正防超賣的是下面的 productDao.decreaseStock（資料庫原子扣庫存）：
+        // 扣不到就丟例外，讓整筆 @Transactional 交易 rollback。
         for (CartItem item : items) {
             Product product = item.getProduct();
             if (product.getStock() < item.getQuantity()) {
