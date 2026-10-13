@@ -6,17 +6,24 @@ import com.example.demo.dao.OrderItemDao;
 import com.example.demo.dao.ProductDao;
 import com.example.demo.model.CartItem;
 import com.example.demo.model.Member;
+import com.example.demo.model.Order;
+import com.example.demo.model.OrderItem;
+import com.example.demo.model.Product;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -85,5 +92,95 @@ class CartServiceImplTest {
 
         // 而且絕對不能呼叫到 save，確保真的被擋下來
         verify(cartItemDao, never()).save(any());
+    }
+
+    // ======================= checkout（結帳）=======================
+    // 重點：@Transactional 的「回滾」本身需要連真的資料庫才驗證得到（整合測試）。
+    // 單元測試能驗證的是：「該丟例外的時候有丟、不該做的事沒有做」——
+    // 因為丟出例外，正是觸發回滾的條件。
+
+    private Product newProduct(Long id, String name, String price, int stock) {
+        Product p = new Product();
+        p.setId(id);
+        p.setName(name);
+        p.setPrice(new BigDecimal(price));
+        p.setStock(stock);
+        return p;
+    }
+
+    private CartItem newCartItem(Product product, int quantity) {
+        CartItem item = new CartItem();
+        item.setProduct(product);
+        item.setQuantity(quantity);
+        return item;
+    }
+
+    @Test
+    void checkout_whenCartIsEmpty_shouldThrowAndNotCreateOrder() {
+        when(cartItemDao.findByMember(member)).thenReturn(List.of());
+
+        assertThrows(IllegalStateException.class, () -> cartService.checkout(member));
+
+        verify(orderDao, never()).save(any(Order.class));
+    }
+
+    @Test
+    void checkout_whenStockIsEnough_shouldCreateOrderDecreaseStockAndClearCart() {
+        Product product = newProduct(10L, "鍵盤", "100.00", 5);
+        when(cartItemDao.findByMember(member)).thenReturn(List.of(newCartItem(product, 2)));
+        // 假的 orderDao.save：模擬資料庫幫新訂單產生 id（500），再把訂單回傳
+        when(orderDao.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(500L);
+            return o;
+        });
+        // 假的原子扣庫存：回傳 true 代表資料庫真的扣成功
+        when(productDao.decreaseStock(10L, 2)).thenReturn(true);
+
+        Order result = cartService.checkout(member);
+
+        assertEquals(500L, result.getId());
+        assertEquals(1L, result.getMemberId());
+        // BigDecimal 用 compareTo 比大小，避免 200.0 與 200.00 因 scale 不同被判成不相等
+        assertEquals(0, new BigDecimal("200.00").compareTo(result.getTotalAmount()));
+        verify(orderItemDao, times(1)).save(any(OrderItem.class));
+        verify(productDao, times(1)).decreaseStock(10L, 2);
+        verify(cartItemDao, times(1)).deleteByMember(member);
+    }
+
+    @Test
+    void checkout_whenStockIsNotEnough_shouldThrowAndNotCreateOrder() {
+        Product product = newProduct(10L, "鍵盤", "100.00", 1);
+        when(cartItemDao.findByMember(member)).thenReturn(List.of(newCartItem(product, 3)));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> cartService.checkout(member));
+
+        assertTrue(ex.getMessage().contains("鍵盤"));
+        // 庫存不足要「在建立訂單之前」就擋下來：沒有訂單、沒有扣庫存、購物車也沒被清空
+        verify(orderDao, never()).save(any(Order.class));
+        verify(productDao, never()).decreaseStock(anyLong(), anyInt());
+        verify(cartItemDao, never()).deleteByMember(any(Member.class));
+    }
+
+    @Test
+    void checkout_whenAtomicDecreaseFails_shouldThrowAndNotClearCart() {
+        // 預先檢查時庫存看起來夠（5 >= 2），但真正扣庫存時資料庫回傳 false
+        // —— 模擬「在檢查和扣庫存之間，剛好被別人買走」的搶購情境
+        Product product = newProduct(10L, "鍵盤", "100.00", 5);
+        when(cartItemDao.findByMember(member)).thenReturn(List.of(newCartItem(product, 2)));
+        when(orderDao.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(500L);
+            return o;
+        });
+        when(productDao.decreaseStock(10L, 2)).thenReturn(false);
+
+        assertThrows(IllegalStateException.class, () -> cartService.checkout(member));
+
+        // 沒有走到「清空購物車」那一步。
+        // 真正的 rollback（把已經存進去的訂單撤銷）是 @Transactional 的工作，
+        // 要用整合測試連真的資料庫才驗證得到。
+        verify(cartItemDao, never()).deleteByMember(any(Member.class));
     }
 }

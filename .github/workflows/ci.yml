@@ -28,10 +28,11 @@ jobs:
       - name: Build with Maven Wrapper
         run: ./mvnw -B clean compile
 
-      # 4. 只跑「純」單元測試（CartServiceImplTest：用 Mockito 把 Dao 都 mock 掉，
+      # 4. 只跑「純」單元測試（CartServiceImplTest、OrderServiceImplTest 用 Mockito 把 Dao 都 mock 掉；
+      #    JwtUtilTest 自己即時產生 RSA 金鑰，
       #    不需要連真的資料庫），所以可以直接在 CI 裡跑，不用額外架 MySQL/Redis。
-      - name: Run unit tests (CartServiceImplTest)
-        run: ./mvnw -B test -Dtest=CartServiceImplTest
+      - name: Run unit tests
+        run: ./mvnw -B test -Dtest=CartServiceImplTest,OrderServiceImplTest,JwtUtilTest
 
       # 註：專案裡另一個測試 MemberMapperTest 是 @SpringBootTest，
       # 會真的連上 MySQL + Redis 才能跑，所以目前故意沒有把它加進 CI，
