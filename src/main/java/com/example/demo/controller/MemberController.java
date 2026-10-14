@@ -16,6 +16,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/members")
@@ -29,6 +32,10 @@ public class MemberController {
 
     @Value("${app.jwt.refresh-token-expiration-ms}")
     private long refreshTokenExpirationMs;
+    @Value("${app.cookie.secure}")
+    private boolean cookieSecure;
+
+    private static final String REFRESH_COOKIE_NAME = "refreshToken";
 
     // Refresh Token 已經改存 Redis，明確用 @Qualifier 指定，避免 Spring 因為有兩個
     // RefreshTokenStore 實作（Redis 版、記憶體版）而丟出 NoUniqueBeanDefinitionException。
@@ -55,33 +62,44 @@ public class MemberController {
         String refreshToken = jwtUtil.generateRefreshToken(member);
         refreshTokenStore.save(member.getId(), refreshToken, refreshTokenExpirationMs);
         log.info("會員登入成功，memberId={}, username={}", member.getId(), member.getUsername());
-        return ResponseEntity.ok(new LoginResponse(MemberResponse.from(member), accessToken, refreshToken));
+        ResponseCookie cookie = buildRefreshCookie(refreshToken, refreshTokenExpirationMs);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(new LoginResponse(MemberResponse.from(member), accessToken));
     }
 
     // 登出：把 Refresh Token 從 RefreshTokenStore 刪掉，之後就不能再拿它換新的 Access Token
     // 目前的 Access Token 沒辦法立刻作廢，但它效期只有 15 分鐘，風險視窗很小
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestBody(required = false) LogoutRequest req) {
-        if (req != null && req.refreshToken != null) {
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken != null) {
             try {
-                Claims claims = jwtUtil.parseClaims(req.refreshToken);
+                Claims claims = jwtUtil.parseClaims(refreshToken);
                 Long memberId = jwtUtil.extractMemberId(claims);
                 refreshTokenStore.delete(memberId);
                 log.info("會員登出成功，memberId={}", memberId);
             } catch (JwtException | IllegalArgumentException e) {
-                // token 本來就無效或已過期，視同登出成功，不用特別處理
                 log.warn("登出時的 Refresh Token 已經無效或過期，視同登出成功");
             }
         }
-        return ResponseEntity.ok().build();
+        // 回一個 Max-Age=0 的同名 cookie，叫瀏覽器把它刪掉
+        ResponseCookie clearCookie = buildRefreshCookie("", 0);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, clearCookie.toString())
+                .build();
     }
 
-    // 用 Refresh Token 換一組新的 Access Token（沒有做 Refresh Token 輪替，簡化版）
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshResponse> refresh(@RequestBody RefreshRequest req) {
+    public ResponseEntity<RefreshResponse> refresh(
+            @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken == null) {
+            log.warn("換發 Access Token 失敗，請求沒有帶 Refresh Token cookie");
+            throw new IllegalStateException("尚未登入或登入已過期，請重新登入");
+        }
         Claims claims;
         try {
-            claims = jwtUtil.parseClaims(req.refreshToken);
+            claims = jwtUtil.parseClaims(refreshToken);
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("換發 Access Token 失敗，Refresh Token 無效或已過期");
             throw new IllegalStateException("Refresh Token 無效或已過期，請重新登入");
@@ -91,7 +109,7 @@ public class MemberController {
             throw new IllegalStateException("這不是 Refresh Token");
         }
         Long memberId = jwtUtil.extractMemberId(claims);
-        if (!refreshTokenStore.isValid(memberId, req.refreshToken)) {
+        if (!refreshTokenStore.isValid(memberId, refreshToken)) {
             log.warn("換發 Access Token 失敗，Refresh Token 已被登出或不存在，memberId={}", memberId);
             throw new IllegalStateException("Refresh Token 已被登出或不存在，請重新登入");
         }
@@ -99,6 +117,15 @@ public class MemberController {
         String newAccessToken = jwtUtil.generateAccessToken(member);
         log.info("換發 Access Token 成功，memberId={}", memberId);
         return ResponseEntity.ok(new RefreshResponse(newAccessToken));
+    }
+    private ResponseCookie buildRefreshCookie(String token, long maxAgeMs) {
+        return ResponseCookie.from(REFRESH_COOKIE_NAME, token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Lax")
+                .path("/api/members")
+                .maxAge(Duration.ofMillis(maxAgeMs))
+                .build();
     }
 
     @GetMapping("/me")
@@ -175,18 +202,14 @@ public class MemberController {
     public static class LoginResponse {
         public MemberResponse member;
         public String accessToken;
-        public String refreshToken;
 
-        public LoginResponse(MemberResponse member, String accessToken, String refreshToken) {
+        public LoginResponse(MemberResponse member, String accessToken) {
             this.member = member;
             this.accessToken = accessToken;
-            this.refreshToken = refreshToken;
         }
     }
 
-    public static class RefreshRequest {
-        public String refreshToken;
-    }
+
 
     public static class RefreshResponse {
         public String accessToken;
@@ -196,7 +219,5 @@ public class MemberController {
         }
     }
 
-    public static class LogoutRequest {
-        public String refreshToken;
-    }
+
 }
