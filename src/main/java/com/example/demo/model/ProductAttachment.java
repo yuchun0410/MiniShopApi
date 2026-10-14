@@ -1,6 +1,8 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 // 商品上傳附件：檔案「內容本身」直接存進資料庫（file_data 這個 BLOB 欄位），
@@ -22,14 +24,26 @@ public class ProductAttachment {
     @Column(nullable = false, length = 255)
     private String originalFileName;
 
-    // 檔案的實際位元組內容，直接存進資料庫（MySQL 對應 LONGBLOB 欄位）。
+    // 檔案的實際位元組內容，直接存進資料庫。
     // 這個欄位取代了原本的 storedFileName / filePath——不再需要幫檔案取一個
     // 硬碟上的儲存檔名，也不需要記錄硬碟路徑，因為根本沒有實體檔案存在。
-    // 明確指定 columnDefinition = LONGBLOB，不要依賴 Hibernate 自動判斷欄位型別——
-    // 不同版本的 Hibernate 對 @Lob + byte[] 在 MySQL 上判斷出來的欄位大小不一定一致
-    // （曾經有版本會判斷成 TINYBLOB，上限只有 255 bytes，檔案一大就直接存不進去）。
+    //
+    // 型別選用踩過兩次坑，記錄一下：
+    // 1) 原本寫死 columnDefinition = "LONGBLOB"（MySQL 專屬型別名稱），PostgreSQL 不認得。
+    // 2) 改成 @JdbcTypeCode(SqlTypes.BLOB) 後，PostgreSQL 建表變成走舊式的 large object
+    //    （欄位型別是 oid，只存一個指標），但實際寫入資料時 JDBC 驅動是用 bytea 的方式
+    //    綁定參數，兩邊對不起來，會噴 "column is of type oid but expression is of type bytea"。
+    // 最後改用 @JdbcTypeCode(SqlTypes.LONGVARBINARY)，兩個資料庫實測建表結果如下：
+    //   MySQL 8      -> longblob（容量上限約 4GB）
+    //   PostgreSQL 16 -> bytea（新式做法，欄位直接存內容本身，不用 large object API）
+    // 兩邊的「欄位型別」跟「寫入方式」一致，不會再有型別不符的問題。
+    //
+    // length = 20971520（20MB）要跟 application.properties 的 spring.servlet.multipart.max-file-size
+    // 保持一致。這個長度超過 MySQL MEDIUMBLOB 的 16MB 上限，Hibernate 才會選 longblob；
+    // 如果拿掉 length，預設長度會讓 MySQL 建出容量小很多的欄位，大檔案就存不進去。
     @Lob
-    @Column(name = "file_data", columnDefinition = "LONGBLOB")
+    @JdbcTypeCode(SqlTypes.LONGVARBINARY)
+    @Column(name = "file_data", length = 20971520)
     private byte[] fileData;
 
     @Column(nullable = false)

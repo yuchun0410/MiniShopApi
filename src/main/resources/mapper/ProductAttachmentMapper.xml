@@ -5,7 +5,7 @@
         <id property="id" column="id"/>
         <result property="productId" column="product_id"/>
         <result property="originalFileName" column="original_file_name"/>
-        <result property="fileData" column="file_data" jdbcType="BLOB"/>
+        <result property="fileData" column="file_data"/>
         <result property="fileSize" column="file_size"/>
         <result property="contentType" column="content_type"/>
         <result property="uploadedAt" column="uploaded_at"/>
@@ -18,7 +18,7 @@
 
     <insert id="insert" parameterType="com.example.demo.model.ProductAttachment" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO product_attachment (product_id, original_file_name, file_data, file_size, content_type, uploaded_at)
-        VALUES (#{productId}, #{originalFileName}, #{fileData, jdbcType=BLOB}, #{fileSize}, #{contentType}, #{uploadedAt})
+        VALUES (#{productId}, #{originalFileName}, #{fileData}, #{fileSize}, #{contentType}, #{uploadedAt})
     </insert>
     <select id="findByProductId" resultMap="ProductAttachmentResultMap">
         SELECT <include refid="Base_Column_List"/> FROM product_attachment WHERE product_id = #{productId}
